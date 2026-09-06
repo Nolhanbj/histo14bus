@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://histo14bus.vercel.app/sitemap.xml

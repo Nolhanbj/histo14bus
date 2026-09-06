@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="fr" class="bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historique & Parc Twisto Caen - HBN</title>
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            twisto: {
+              blue: '#0055A5',
+              cyan: '#00A0DE',
+              yellow: '#FDB813',
+              dark: '#0f172a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Style scrollbar custom */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .badge-tram { background-color: #e11d48; color: white; }
+    .badge-liane { background-color: #0284c7; color: white; }
+    .badge-ligne { background-color: #0d9488; color: white; }
+    .badge-navette { background-color: #d97706; color: white; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-blue-600 selection:text-white pb-12">
+
+  <!-- ================= TOP HEADER TC-INFOS STYLE ================= -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-lg">
+    <!-- Network Bar -->
+    <div class="bg-blue-900/40 border-b border-blue-800/40 px-4 py-1.5 text-xs flex justify-between items-center text-blue-200">
+      <div class="flex items-center gap-2">
+        <span class="font-bold tracking-wider uppercase"><i class="fa-solid fa-map-pin mr-1 text-blue-400"></i>Réseau Twisto (Caen la mer)</span>
+        <span class="text-slate-500">|</span>
+        <span>Exploitant : <strong>Keolis Caen Mobilités</strong></span>
+      </div>
+      <div id="header-stats" class="hidden sm:flex gap-4">
+        <!-- Rempli par JS -->
+      </div>
+    </div>
+
+    <!-- Main Navigation -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="navigate('fleet')">
+          <div class="bg-gradient-to-tr from-blue-700 to-cyan-500 text-white font-black px-2.5 py-1.5 rounded-lg shadow text-lg tracking-wider">
+            HBN
+          </div>
+          <div>
+            <div class="font-extrabold text-lg text-white leading-tight">Historique Bus Normandie</div>
+            <div class="text-xs text-cyan-400 font-medium">Base de données du matériel roulant</div>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex items-center space-x-1 sm:space-x-2">
+          <button onclick="navigate('fleet')" id="nav-fleet" class="nav-tab px-3.5 py-2 rounded-lg text-sm font-semibold transition bg-blue-600 text-white shadow"><i class="fa-solid fa-bus-simple mr-1.5"></i>Parc</button>
+          <button onclick="navigate('lines')" id="nav-lines" class="nav-tab px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 transition"><i class="fa-solid fa-route mr-1.5"></i>Lignes & Plans</button>
+          <button onclick="navigate('gallery')" id="nav-gallery" class="nav-tab px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 transition"><i class="fa-solid fa-camera mr-1.5"></i>Photothèque</button>
+          <button onclick="openAdminGate()" id="nav-admin" class="px-3.5 py-2 rounded-lg text-sm font-bold bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition"><i class="fa-solid fa-shield-halved mr-1.5"></i>Admin</button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= CONTENEUR PRINCIPAL ================= -->
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex-1">
+
+    <!-- 1. SECTION ÉTAT DU PARC (FLEET) -->
+    <section id="section-fleet" class="space-y-4">
+      
+      <!-- Barre de recherche & Filtres avancés style TC-Infos -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-3">
+        <div class="flex flex-col md:flex-row gap-3 justify-between items-center">
+          <div class="relative w-full md:w-96">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+            <input type="text" id="filter-search" oninput="filterFleet()" placeholder="Rechercher par N° parc, immat, modèle, livrée..." class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition placeholder:text-slate-500">
+          </div>
+
+          <div class="flex flex-wrap gap-2 w-full md:w-auto">
+            <select id="filter-type" onchange="filterFleet()" class="bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none">
+              <option value="ALL">Tous types (Bus & Tram)</option>
+              <option value="Tramway">Tramway</option>
+              <option value="Articulé">Bus Articulé (18m)</option>
+              <option value="Standard">Bus Standard (12m)</option>
+              <option value="Midibus">Midibus / Minibus</option>
+            </select>
+
+            <select id="filter-status" onchange="filterFleet()" class="bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none">
+              <option value="ALL">Tous les statuts</option>
+              <option value="En service">En service</option>
+              <option value="Réformé">Réformé</option>
+              <option value="Préservé">Préservé</option>
+              <option value="En prêt / Essai">En prêt / Essai</option>
+            </select>
+
+            <select id="filter-energy" onchange="filterFleet()" class="bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none">
+              <option value="ALL">Toutes énergies</option>
+              <option value="GNV">GNV / Biogaz</option>
+              <option value="Électrique">Électrique</option>
+              <option value="Diesel">Diesel</option>
+              <option value="Hybride">Hybride</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Badges récapitulatifs rapides -->
+        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
+          <span>Séries rapides :</span>
+          <button onclick="quickFilter('Citadis 302')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-200">Tramway (01-26)</button>
+          <button onclick="quickFilter('Citywide LFA')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-200">Scania LFA GNV (340-365)</button>
+          <button onclick="quickFilter('GX 327')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-200">Heuliez GX 327</button>
+          <button onclick="quickFilter('Urbanway')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-200">Iveco Urbanway</button>
+          <button onclick="quickFilter('Bluebus')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-200">Navettes Élec</button>
+          <button onclick="resetFilters()" class="text-blue-400 hover:underline ml-auto"><i class="fa-solid fa-rotate-left mr-1"></i>Réinitialiser</button>
+        </div>
+      </div>
+
+      <!-- TABLEAU STYLE TC-INFOS -->
+      <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 text-xs uppercase font-bold border-b border-slate-800 select-none">
+              <tr>
+                <th class="px-4 py-3.5">N° Parc</th>
+                <th class="px-4 py-3.5">Modèle & Marque</th>
+                <th class="px-4 py-3.5">Immatriculation</th>
+                <th class="px-4 py-3.5">Énergie</th>
+                <th class="px-4 py-3.5">Livrée</th>
+                <th class="px-4 py-3.5">Mise en service</th>
+                <th class="px-4 py-3.5">Statut</th>
+                <th class="px-4 py-3.5 text-center">Fiche / Photos</th>
+              </tr>
+            </thead>
+            <tbody id="fleet-table-body" class="divide-y divide-slate-800/60 font-normal">
+              <!-- Rempli par JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        <div id="fleet-count-bar" class="p-3 bg-slate-950/60 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
+          <span>Affichage de <strong id="visible-bus-count" class="text-white">0</strong> véhicules</span>
+          <span class="text-slate-500">Cliquez sur un véhicule pour voir sa fiche détaillée</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. SECTION LIGNES & PLANS -->
+    <section id="section-lines" class="space-y-6 hidden">
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-white">Lignes & Réseau Twisto</h1>
+          <p class="text-xs sm:text-sm text-slate-400">Tramways, Lianes, Lignes standards, Flexo et Navettes de Caen la mer</p>
+        </div>
+        <div class="flex gap-2">
+          <a href="https://www.twisto.fr/se-deplacer/plans-du-reseau.html" target="_blank" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-map"></i> Plan Officiel Twisto (PDF)
+          </a>
+        </div>
+      </div>
+
+      <!-- Grille des Lignes -->
+      <div id="lines-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Rempli par JS -->
+      </div>
+    </section>
+
+    <!-- 3. SECTION PHOTOTHÈQUE -->
+    <section id="section-gallery" class="space-y-6 hidden">
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-white">Photothèque du Réseau</h1>
+          <p class="text-xs sm:text-sm text-slate-400">Galerie collaborative des véhicules Twisto et archives normandes</p>
+        </div>
+        <button onclick="openAddPhotoModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition">
+          <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>Proposer une photo
+        </button>
+      </div>
+
+      <!-- Galerie Grille -->
+      <div id="gallery-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Rempli par JS -->
+      </div>
+    </section>
+
+    <!-- 4. SECTION MODE ADMIN (Back-Office) -->
+    <section id="section-admin" class="space-y-6 hidden">
+      <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-6 border-b border-slate-800">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-2xl font-black text-white"><i class="fa-solid fa-shield-halved text-amber-400 mr-2"></i>Administration & Gestion</h1>
+              <span id="current-user-role-badge" class="bg-amber-950 border border-amber-600/50 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-bold">Admin Master</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Gestion complète du parc, des lignes, du personnel et de la base de données</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="exportDatabase()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700"><i class="fa-solid fa-file-export mr-1.5"></i>Sauvegarder JSON</button>
+            <button onclick="document.getElementById('import-file').click()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700"><i class="fa-solid fa-file-import mr-1.5"></i>Restaurer</button>
+            <input type="file" id="import-file" class="hidden" accept=".json" onchange="importDatabase(event)">
+            <button onclick="logoutAdmin()" class="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 text-xs font-semibold rounded-lg border border-rose-800"><i class="fa-solid fa-right-from-bracket mr-1.5"></i>Déconnexion</button>
+          </div>
+        </div>
+
+        <!-- Onglets du Mode Admin -->
+        <div class="flex flex-wrap gap-2 pt-6">
+          <button onclick="switchAdminSubTab('tab-admin-bus')" id="btn-tab-bus" class="admin-subnav-btn px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white"><i class="fa-solid fa-bus mr-1.5"></i>Gestion des Bus</button>
+          <button onclick="switchAdminSubTab('tab-admin-lines')" id="btn-tab-lines" class="admin-subnav-btn px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700"><i class="fa-solid fa-route mr-1.5"></i>Gestion Lignes & Arrêts</button>
+          <button onclick="switchAdminSubTab('tab-admin-photos')" id="btn-tab-photos" class="admin-subnav-btn px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700"><i class="fa-solid fa-camera mr-1.5"></i>Gestion Photothèque</button>
+          <button onclick="switchAdminSubTab('tab-admin-staff')" id="btn-tab-staff" class="admin-subnav-btn px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700"><i class="fa-solid fa-users-gear mr-1.5"></i>Personnel & Équipe</button>
+        </div>
+
+        <!-- SOUS-ONGLET 1 : GESTION BUS -->
+        <div id="tab-admin-bus" class="admin-tab-content space-y-6 pt-4">
+          <div class="bg-slate-950 p-5 rounded-xl border border-slate-800">
+            <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <i class="fa-solid fa-circle-plus text-blue-500"></i> Ajouter / Modifier un véhicule
+            </h3>
+            <form id="form-bus" onsubmit="handleBusSubmit(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <input type="hidden" id="bus-edit-index" value="-1">
+              
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">N° de Parc *</label>
+                <input type="text" id="input-bus-parc" required placeholder="Ex: 355" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white font-mono focus:border-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Immatriculation</label>
+                <input type="text" id="input-bus-immat" placeholder="Ex: FP-123-AB" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white font-mono focus:border-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Marque *</label>
+                <input type="text" id="input-bus-marque" required placeholder="Ex: Scania, Heuliez, Alstom" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Modèle *</label>
+                <input type="text" id="input-bus-modele" required placeholder="Ex: Citywide LFA GNV, GX 327" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Type de matériel</label>
+                <select id="input-bus-type" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+                  <option value="Articulé">Bus Articulé (18m)</option>
+                  <option value="Standard">Bus Standard (12m)</option>
+                  <option value="Tramway">Tramway</option>
+                  <option value="Midibus">Midibus / Minibus</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Énergie</label>
+                <select id="input-bus-energie" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+                  <option value="GNV">GNV / Biogaz</option>
+                  <option value="Électrique">Électrique</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Hybride">Hybride</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Statut *</label>
+                <select id="input-bus-statut" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+                  <option value="En service">En service</option>
+                  <option value="Réformé">Réformé</option>
+                  <option value="Préservé">Préservé</option>
+                  <option value="En prêt / Essai">En prêt / Essai</option>
+                  <option value="Vendu">Vendu</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Livrée</label>
+                <input type="text" id="input-bus-livree" placeholder="Twisto Blanche, Twisto Jaune/Bleu" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Mise en service (Date ou Année)</label>
+                <input type="text" id="input-bus-mes" placeholder="Ex: 01/09/2019 ou 2019" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Date de réforme (optionnel)</label>
+                <input type="text" id="input-bus-reforme" placeholder="Ex: 2023" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-slate-400 font-semibold mb-1">Notes / Affectation / Historique</label>
+                <input type="text" id="input-bus-notes" placeholder="Ex: Ex-démonstrateur, Climatisation intégrale..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white focus:border-blue-500 outline-none">
+              </div>
+              <div class="sm:col-span-2 lg:col-span-4 flex justify-end gap-2 pt-2">
+                <button type="button" onclick="resetBusForm()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded font-semibold hover:bg-slate-700">Annuler</button>
+                <button type="submit" id="btn-save-bus" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold transition">Enregistrer le véhicule</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- SOUS-ONGLET 2 : GESTION LIGNES & ARRÊTS -->
+        <div id="tab-admin-lines" class="admin-tab-content space-y-6 pt-4 hidden">
+          <div class="bg-slate-950 p-5 rounded-xl border border-slate-800">
+            <h3 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-plus-circle text-blue-500 mr-1.5"></i>Ajouter ou modifier une ligne</h3>
+            <form id="form-line" onsubmit="handleLineSubmit(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Indice / Code Ligne *</label>
+                <input type="text" id="input-line-code" required placeholder="Ex: T1, 6A, 10, Navette" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white font-bold">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-slate-400 font-semibold mb-1">Nom / Trajet *</label>
+                <input type="text" id="input-line-name" required placeholder="Ex: Hérouville Saint-Clair <> Ifs Jean Vilar" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Type de Ligne</label>
+                <select id="input-line-type" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+                  <option value="Tramway">Tramway</option>
+                  <option value="Liane">Liane (Ligne Forte)</option>
+                  <option value="Ligne Standard">Ligne Standard</option>
+                  <option value="Navette">Navette</option>
+                  <option value="Flexo / Résa">Flexo / RésaTwisto</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Couleur Badge (Hexadecimal)</label>
+                <input type="color" id="input-line-color" value="#0055A5" class="w-full h-9 bg-slate-900 border border-slate-700 rounded p-1 cursor-pointer">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Lien Plan PDF / Image</label>
+                <input type="url" id="input-line-plan" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block text-slate-400 font-semibold mb-1">Principaux Arrêts (séparés par des virgules)</label>
+                <textarea id="input-line-stops" rows="2" placeholder="Gare SNCF, Théâtre, Château Quatrans, Campus 1, Saint-Pierre..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white"></textarea>
+              </div>
+              <div class="sm:col-span-3 flex justify-end">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded">Ajouter la ligne</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- SOUS-ONGLET 3 : GESTION PHOTOTHÈQUE -->
+        <div id="tab-admin-photos" class="admin-tab-content space-y-6 pt-4 hidden">
+          <div class="bg-slate-950 p-5 rounded-xl border border-slate-800">
+            <h3 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-cloud-arrow-up text-blue-500 mr-1.5"></i>Ajouter une photo à la galerie</h3>
+            <form id="form-photo" onsubmit="handlePhotoSubmit(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">N° de Parc associé *</label>
+                <input type="text" id="input-photo-parc" required placeholder="Ex: 351 ou Citadis 01" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Lien / URL de l'image *</label>
+                <input type="url" id="input-photo-url" required placeholder="https://i.ibb.co/... ou URL directe" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Auteur / Photographe *</label>
+                <input type="text" id="input-photo-author" required placeholder="Votre nom ou pseudo" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Lieu de la prise de vue</label>
+                <input type="text" id="input-photo-location" placeholder="Ex: Arrêt Théâtre, Dépôt..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-semibold mb-1">Date de la photo</label>
+                <input type="date" id="input-photo-date" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+              </div>
+              <div class="sm:col-span-2 lg:col-span-3 flex justify-end">
+                <button type="submit" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded">Publier dans la photothèque</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- SOUS-ONGLET 4 : GESTION DU PERSONNEL -->
+        <div id="tab-admin-staff" class="admin-tab-content space-y-6 pt-4 hidden">
+          <div class="bg-slate-950 p-5 rounded-xl border border-slate-800">
+            <h3 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-user-plus text-blue-500 mr-1.5"></i>Ajouter un membre à l'équipe du site</h3>
+            <form id="form-staff" onsubmit="handleStaffSubmit(event)" class="flex flex-col sm:flex-row gap-3 text-xs">
+              <input type="text" id="input-staff-name" required placeholder="Nom / Pseudo du membre" class="bg-slate-900 border border-slate-700 rounded p-2.5 text-white flex-1">
+              <input type="email" id="input-staff-email" required placeholder="Email de contact" class="bg-slate-900 border border-slate-700 rounded p-2.5 text-white flex-1">
+              <select id="input-staff-role" class="bg-slate-900 border border-slate-700 rounded p-2.5 text-white">
+                <option value="Administrateur">Administrateur (Tous les droits)</option>
+                <option value="Modérateur">Modérateur (Gestion fiches & validation)</option>
+                <option value="Photographe">Photographe / Contributeur</option>
+              </select>
+              <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded">Ajouter le membre</button>
+            </form>
+          </div>
+
+          <!-- Liste de l'équipe -->
+          <div class="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-900 text-slate-400 font-bold uppercase border-b border-slate-800">
+                <tr>
+                  <th class="p-3">Nom / Pseudo</th>
+                  <th class="p-3">Email</th>
+                  <th class="p-3">Rôle</th>
+                  <th class="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staff-table-body" class="divide-y divide-slate-800/60">
+                <!-- Rempli par JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODALES (Fiche Bus, Photo Zoom, Mot de passe Admin) ================= -->
+  
+  <!-- Modale Fiche Bus Complète -->
+  <div id="modal-bus-detail" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+        <div>
+          <span id="detail-bus-parc" class="text-2xl font-black text-cyan-400 font-mono">#000</span>
+          <h2 id="detail-bus-title" class="text-xl font-bold text-white">Marque Modèle</h2>
+        </div>
+        <button onclick="closeModal('modal-bus-detail')" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-semibold">Immatriculation</span>
+          <span id="detail-bus-immat" class="text-white font-mono font-bold">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-semibold">Énergie</span>
+          <span id="detail-bus-energie" class="text-white font-bold">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-semibold">Statut actuel</span>
+          <span id="detail-bus-statut" class="text-white font-bold">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-semibold">Mise en service</span>
+          <span id="detail-bus-mes" class="text-white">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-semibold">Livrée</span>
+          <span id="detail-bus-livree" class="text-white">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-semibold">Dépôt</span>
+          <span id="detail-bus-depot" class="text-white">Caen</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 text-xs">
+        <span class="text-slate-400 font-bold block mb-1">Historique & Notes :</span>
+        <p id="detail-bus-notes" class="text-slate-300 italic">Aucune note particulière pour ce véhicule.</p>
+      </div>
+
+      <div id="detail-bus-photos" class="space-y-2">
+        <!-- Miniatures des photos du bus -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Login Admin -->
+  <div id="modal-admin-gate" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+      <div class="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-xl border border-amber-500/30">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h3 class="text-lg font-bold text-white">Espace Administrateur</h3>
+      <p class="text-xs text-slate-400">Entrez le code d'accès administrateur pour modifier les bus, lignes et membres.</p>
+      
+      <input type="password" id="admin-pass-input" placeholder="Mot de passe admin (Défaut: twisto14)" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-center text-white text-sm focus:border-amber-500 outline-none">
+      
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeModal('modal-admin-gate')" class="w-1/2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">Annuler</button>
+        <button onclick="verifyAdminPass()" class="w-1/2 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition">Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS & DONNÉES TWISTO ================= -->
+  <script>
+    // ================= 1. DONNÉES PAR DÉFAUT (TWISTO / HISTO14BUS) =================
+    const DEFAULT_FLEET = [
+      // Tramway
+      { parc: "01", immat: "Tramway T1-T2-T3", marque: "Alstom", modele: "Citadis 302", type: "Tramway", energie: "Électrique", mes: "2019", reforme: "", statut: "En service", livree: "Twisto Blanche / Dégradé", notes: "Rame de tramway fer 33 mètres. Mise en service juillet 2019." },
+      { parc: "05", immat: "Tramway T1-T2-T3", marque: "Alstom", modele: "Citadis 302", type: "Tramway", energie: "Électrique", mes: "2019", reforme: "", statut: "En service", livree: "Twisto Blanche / Dégradé", notes: "Baptisée Caen la mer." },
+      { parc: "26", immat: "Tramway T1-T2-T3", marque: "Alstom", modele: "Citadis 302", type: "Tramway", energie: "Électrique", mes: "2019", reforme: "", statut: "En service", livree: "Twisto Blanche / Dégradé", notes: "Dernière rame de la 1ère commande." },
+
+      // Scania Citywide LFA GNV (Articulés)
+      { parc: "340", immat: "FN-741-AK", marque: "Scania", modele: "Citywide LFA GNV", type: "Articulé", energie: "GNV", mes: "2019", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Affecté prioritairement aux Lianes 1, 2, 3." },
+      { parc: "351", immat: "FP-890-ZZ", marque: "Scania", modele: "Citywide LFA GNV", type: "Articulé", energie: "GNV", mes: "2020", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Motorisation Bio-GNV." },
+      { parc: "365", immat: "GC-214-XX", marque: "Scania", modele: "Citywide LFA GNV", type: "Articulé", energie: "GNV", mes: "2021", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Équipé de ports USB & climatisation intégrale." },
+
+      // Heuliez GX 327 & GX 337
+      { parc: "105", immat: "AF-120-NW", marque: "Heuliez", modele: "GX 327", type: "Standard", energie: "Diesel", mes: "2008", reforme: "2022", statut: "Réformé", livree: "Twisto Jaune & Bleu", notes: "Ancienne livrée Twisto avec pastilles rondes. Réformé suite à l'arrivée des Scania GNV." },
+      { parc: "125", immat: "BM-456-TZ", marque: "Heuliez", modele: "GX 327", type: "Standard", energie: "Diesel", mes: "2011", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Bus de réserve / renforts scolaires." },
+      { parc: "135", immat: "DH-789-EE", marque: "Heuliez", modele: "GX 337", type: "Standard", energie: "Diesel", mes: "2015", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Norme Euro 6." },
+
+      // Iveco Urbanway 12 & 18
+      { parc: "370", immat: "GK-112-BB", marque: "Iveco", modele: "Urbanway 18 GNV", type: "Articulé", energie: "GNV", mes: "2022", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Articulé haute capacité GNV." },
+      { parc: "210", immat: "GL-445-CC", marque: "Iveco", modele: "Urbanway 12 GNV", type: "Standard", energie: "GNV", mes: "2022", reforme: "", statut: "En service", livree: "Twisto Blanche", notes: "Standard GNV dernière génération." },
+
+      // Navettes / Minibus
+      { parc: "701", immat: "EJ-554-LK", marque: "Bolloré", modele: "Bluebus 6m", type: "Midibus", energie: "Électrique", mes: "2018", reforme: "", statut: "En service", livree: "Twisto Électrique Verte/Bleue", notes: "Navette gratuite de centre-ville de Caen." },
+      { parc: "705", immat: "EQ-998-MM", marque: "Bolloré", modele: "Bluebus 6m", type: "Midibus", energie: "Électrique", mes: "2019", reforme: "", statut: "En service", livree: "Twisto Électrique", notes: "Ligne Navette Centre-Ville." }
+    ];
+
+    const DEFAULT_LINES = [
+      { code: "T1", name: "Hérouville Saint-Clair <> Ifs Jean Vilar", type: "Tramway", color: "#E11D48", stops: "Hérouville St-Clair, Château d'Eau, Cité U Lebisey, Campus 1, Place de la Mare, Quatrans, Théâtre, Saint-Pierre, Rives de l'Orne, Gare SNCF, Guynemer, Grâce de Dieu, Ifs Jean Vilar" },
+      { code: "T2", name: "Caen Campus 2 <> Caen Presqu'île", type: "Tramway", color: "#0284C7", stops: "Campus 2, Citis, Côte de Nacre, CHU des Terrasses, Campus 1, Saint-Pierre, Rives de l'Orne, Presqu'île" },
+      { code: "T3", name: "Château Quatrans <> Fleury Hauts de l'Orne", type: "Tramway", color: "#10B981", stops: "Quatrans, Théâtre, Gare SNCF, Aviation, Collège Hawking, Fleury Hauts de l'Orne" },
+      { code: "L1", name: "Chemin Vert <> Mondeville CC", type: "Liane", color: "#D946EF", stops: "Chemin Vert, Saint-Paul, Théâtre, Gambetta, Gare SNCF, Mondeville Village, Mondeville 2" },
+      { code: "L2", name: "Beaulieu Brazza <> Mémorial / Folie Couvrechef", type: "Liane", color: "#EAB308", stops: "Stade d'Ornano, Beaulieu, Lycée Malherbe, Théâtre, Gare SNCF, Mémorial" },
+      { code: "N-CV", name: "Navette Centre-Ville (Gratuite)", type: "Navette", color: "#F97316", stops: "Théâtre, Saint-Sauveur, Place de la République, Château, Port de Plaisance" }
+    ];
+
+    const DEFAULT_PHOTOS = [
+      { parc: "351", url: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80", author: "HBN Team", location: "Caen Théâtre", date: "2023-05-14" },
+      { parc: "01", url: "https://images.unsplash.com/photo-1519074069444-1ba4ea16e665?auto=format&fit=crop&w=800&q=80", author: "TramSpotter14", location: "Place de la Mare", date: "2022-09-10" }
+    ];
+
+    const DEFAULT_STAFF = [
+      { name: "Administrateur Principal", email: "admin@twisto-hbn.fr", role: "Administrateur" },
+      { name: "Contributeur Photo 14", email: "contact@histo14bus.fr", role: "Photographe" }
+    ];
+
+    // ================= 2. ÉTAT GLOBAL DE L'APPLICATION (LocalStorage) =================
+    let fleetData = JSON.parse(localStorage.getItem('hbn_fleet')) || DEFAULT_FLEET;
+    let linesData = JSON.parse(localStorage.getItem('hbn_lines')) || DEFAULT_LINES;
+    let photosData = JSON.parse(localStorage.getItem('hbn_photos')) || DEFAULT_PHOTOS;
+    let staffData = JSON.parse(localStorage.getItem('hbn_staff')) || DEFAULT_STAFF;
+    let isAdminAuthenticated = sessionStorage.getItem('hbn_admin_logged') === 'true';
+
+    function saveData() {
+      localStorage.setItem('hbn_fleet', JSON.stringify(fleetData));
+      localStorage.setItem('hbn_lines', JSON.stringify(linesData));
+      localStorage.setItem('hbn_photos', JSON.stringify(photosData));
+      localStorage.setItem('hbn_staff', JSON.stringify(staffData));
+      updateStats();
+    }
+
+    // ================= 3. AFFICHAGE & RENDU DU PARC (FLEET) =================
+    function renderFleetTable(data = fleetData) {
+      const tbody = document.getElementById('fleet-table-body');
+      document.getElementById('visible-bus-count').innerText = data.length;
+
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500"><i class="fa-solid fa-bus-simple text-3xl mb-2 block"></i>Aucun matériel ne correspond aux filtres.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.map((bus, idx) => {
+        // Status Badge Style
+        let badge = '';
+        if (bus.statut === 'En service') badge = '<span class="bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2 py-0.5 rounded-full text-xs font-bold">En service</span>';
+        else if (bus.statut === 'Réformé') badge = '<span class="bg-rose-950 text-rose-300 border border-rose-800/80 px-2 py-0.5 rounded-full text-xs font-bold">Réformé</span>';
+        else if (bus.statut === 'Préservé') badge = '<span class="bg-purple-950 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded-full text-xs font-bold">Préservé</span>';
+        else badge = `<span class="bg-amber-950 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded-full text-xs font-bold">${bus.statut}</span>`;
+
+        // Énergie style
+        let energyIcon = 'fa-gas-pump';
+        if (bus.energie === 'Électrique') energyIcon = 'fa-bolt text-yellow-400';
+        else if (bus.energie === 'GNV') energyIcon = 'fa-leaf text-emerald-400';
+
+        // Count photos
+        const photoCount = photosData.filter(p => p.parc == bus.parc).length;
+
+        return `
+          <tr onclick="openBusDetail('${bus.parc}')" class="hover:bg-slate-800/50 cursor-pointer transition border-b border-slate-800/40">
+            <td class="px-4 py-3 font-mono font-black text-cyan-400 text-sm">#${bus.parc}</td>
+            <td class="px-4 py-3 font-semibold text-white">${bus.marque} <span class="font-normal text-slate-300">${bus.modele}</span></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-400">${bus.immat || '-'}</td>
+            <td class="px-4 py-3 text-xs"><i class="fa-solid ${energyIcon} mr-1"></i>${bus.energie}</td>
+            <td class="px-4 py-3 text-xs text-slate-300">${bus.livree || 'Twisto'}</td>
+            <td class="px-4 py-3 text-xs text-slate-400">${bus.mes || '-'}</td>
+            <td class="px-4 py-3">${badge}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                <i class="fa-solid fa-camera"></i> ${photoCount}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ================= 4. FILTRES RECHERCHE TC-INFOS =================
+    function filterFleet() {
+      const search = document.getElementById('filter-search').value.toLowerCase();
+      const type = document.getElementById('filter-type').value;
+      const status = document.getElementById('filter-status').value;
+      const energy = document.getElementById('filter-energy').value;
+
+      const filtered = fleetData.filter(bus => {
+        const matchSearch = (
+          bus.parc.toLowerCase().includes(search) ||
+          bus.marque.toLowerCase().includes(search) ||
+          bus.modele.toLowerCase().includes(search) ||
+          (bus.immat && bus.immat.toLowerCase().includes(search)) ||
+          (bus.livree && bus.livree.toLowerCase().includes(search))
+        );
+        const matchType = (type === 'ALL' || bus.type === type);
+        const matchStatus = (status === 'ALL' || bus.statut === status);
+        const matchEnergy = (energy === 'ALL' || bus.energie === energy);
+
+        return matchSearch && matchType && matchStatus && matchEnergy;
+      });
+
+      renderFleetTable(filtered);
+    }
+
+    function quickFilter(query) {
+      document.getElementById('filter-search').value = query;
+      filterFleet();
+    }
+
+    function resetFilters() {
+      document.getElementById('filter-search').value = '';
+      document.getElementById('filter-type').value = 'ALL';
+      document.getElementById('filter-status').value = 'ALL';
+      document.getElementById('filter-energy').value = 'ALL';
+      renderFleetTable(fleetData);
+    }
+
+    // ================= 5. AFFICHAGE DES LIGNES =================
+    function renderLines() {
+      const container = document.getElementById('lines-container');
+      container.innerHTML = linesData.map(l => {
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow hover:border-slate-700 transition space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-3 py-1 rounded-md font-black text-white text-sm shadow" style="background-color: ${l.color || '#0055A5'}">
+                ${l.code}
+              </span>
+              <span class="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">${l.type}</span>
+            </div>
+            <div class="font-bold text-white text-sm leading-snug">${l.name}</div>
+            <div class="text-xs text-slate-400 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/60 max-h-24 overflow-y-auto">
+              <strong class="text-slate-300 block mb-1">Arrêts desservis :</strong>
+              ${l.stops || 'Consultez la fiche ligne pour le détail des arrêts.'}
+            </div>
+            ${l.plan ? `<a href="${l.plan}" target="_blank" class="block text-center py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-blue-400 rounded"><i class="fa-solid fa-map-location-dot mr-1"></i>Voir le tracé</a>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================= 6. PHOTOTHÈQUE =================
+    function renderGallery() {
+      const container = document.getElementById('gallery-container');
+      if (photosData.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500">Aucune photo dans la photothèque. Soyez le premier à en ajouter une !</div>`;
+        return;
+      }
+      container.innerHTML = photosData.map(p => `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg group hover:border-slate-700 transition flex flex-col">
+          <div class="relative h-44 overflow-hidden bg-slate-950">
+            <img src="${p.url}" alt="Bus Twisto ${p.parc}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.src='https://placehold.co/600x400/0f172a/94a3b8?text=Photo+Bus'">
+            <span class="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md font-mono font-bold text-cyan-400 text-xs px-2 py-0.5 rounded border border-slate-800">
+              #${p.parc}
+            </span>
+          </div>
+          <div class="p-3 text-xs space-y-1 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="font-semibold text-white"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>${p.location || 'Réseau Twisto'}</div>
+              <div class="text-slate-400 text-[11px]"><i class="fa-solid fa-user-pen mr-1"></i>Photo : <strong>${p.author}</strong></div>
+            </div>
+            <div class="text-[10px] text-slate-500 pt-2 border-t border-slate-800/80">${p.date || 'Archives'}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ================= 7. MODALE DÉTAIL BUS =================
+    function openBusDetail(parcNum) {
+      const bus = fleetData.find(b => b.parc == parcNum);
+      if (!bus) return;
+
+      document.getElementById('detail-bus-parc').innerText = '#' + bus.parc;
+      document.getElementById('detail-bus-title').innerText = `${bus.marque} ${bus.modele}`;
+      document.getElementById('detail-bus-immat').innerText = bus.immat || 'Non renseignée';
+      document.getElementById('detail-bus-energie').innerText = bus.energie || '-';
+      document.getElementById('detail-bus-statut').innerText = bus.statut;
+      document.getElementById('detail-bus-mes').innerText = bus.mes || 'Inconnue';
+      document.getElementById('detail-bus-livree').innerText = bus.livree || 'Twisto';
+      document.getElementById('detail-bus-notes').innerText = bus.notes || 'Aucune note spécifique renseignée pour ce numéro de parc.';
+
+      // Photos du bus
+      const busPhotos = photosData.filter(p => p.parc == bus.parc);
+      const photoDiv = document.getElementById('detail-bus-photos');
+      if (busPhotos.length > 0) {
+        photoDiv.innerHTML = `
+          <span class="text-xs text-slate-400 font-bold block mt-2">Photos répertoriées (${busPhotos.length}) :</span>
+          <div class="grid grid-cols-2 gap-2">
+            ${busPhotos.map(p => `<img src="${p.url}" class="rounded-lg h-28 w-full object-cover border border-slate-800">`).join('')}
+          </div>
+        `;
+      } else {
+        photoDiv.innerHTML = `<span class="text-xs text-slate-500 italic block mt-2">Aucune photo pour ce véhicule actuellement.</span>`;
+      }
+
+      document.getElementById('modal-bus-detail').classList.remove('hidden');
+    }
+
+    // ================= 8. LOGIQUE ADMIN & AUTHENTIFICATION =================
+    function openAdminGate() {
+      if (isAdminAuthenticated) {
+        navigate('admin');
+      } else {
+        document.getElementById('modal-admin-gate').classList.remove('hidden');
+      }
+    }
+
+    function verifyAdminPass() {
+      const pass = document.getElementById('admin-pass-input').value;
+      // Mot de passe par défaut modifiable
+      if (pass === 'twisto14' || pass === 'admin14') {
+        isAdminAuthenticated = true;
+        sessionStorage.setItem('hbn_admin_logged', 'true');
+        closeModal('modal-admin-gate');
+        navigate('admin');
+      } else {
+        alert("Mot de passe incorrect ! (Par défaut: twisto14)");
+      }
+    }
+
+    function logoutAdmin() {
+      isAdminAuthenticated = false;
+      sessionStorage.removeItem('hbn_admin_logged');
+      navigate('fleet');
+    }
+
+    function switchAdminSubTab(tabId) {
+      document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.admin-subnav-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+      });
+      document.getElementById(tabId).classList.remove('hidden');
+      
+      const activeBtnMap = {
+        'tab-admin-bus': 'btn-tab-bus',
+        'tab-admin-lines': 'btn-tab-lines',
+        'tab-admin-photos': 'btn-tab-photos',
+        'tab-admin-staff': 'btn-tab-staff'
+      };
+      document.getElementById(activeBtnMap[tabId]).classList.add('bg-blue-600', 'text-white');
+    }
+
+    // Formulaire d'ajout / modification de Bus
+    function handleBusSubmit(e) {
+      e.preventDefault();
+      const newBus = {
+        parc: document.getElementById('input-bus-parc').value.trim(),
+        immat: document.getElementById('input-bus-immat').value.trim(),
+        marque: document.getElementById('input-bus-marque').value.trim(),
+        modele: document.getElementById('input-bus-modele').value.trim(),
+        type: document.getElementById('input-bus-type').value,
+        energie: document.getElementById('input-bus-energie').value,
+        statut: document.getElementById('input-bus-statut').value,
+        livree: document.getElementById('input-bus-livree').value.trim(),
+        mes: document.getElementById('input-bus-mes').value.trim(),
+        reforme: document.getElementById('input-bus-reforme').value.trim(),
+        notes: document.getElementById('input-bus-notes').value.trim()
+      };
+
+      const existingIndex = fleetData.findIndex(b => b.parc === newBus.parc);
+      if (existingIndex >= 0) {
+        fleetData[existingIndex] = newBus;
+        alert(`Véhicule #${newBus.parc} mis à jour avec succès !`);
+      } else {
+        fleetData.unshift(newBus);
+        alert(`Véhicule #${newBus.parc} ajouté au parc !`);
+      }
+
+      saveData();
+      renderFleetTable();
+      resetBusForm();
+    }
+
+    function resetBusForm() {
+      document.getElementById('form-bus').reset();
+    }
+
+    // Formulaire Ligne
+    function handleLineSubmit(e) {
+      e.preventDefault();
+      const newLine = {
+        code: document.getElementById('input-line-code').value.trim(),
+        name: document.getElementById('input-line-name').value.trim(),
+        type: document.getElementById('input-line-type').value,
+        color: document.getElementById('input-line-color').value,
+        plan: document.getElementById('input-line-plan').value.trim(),
+        stops: document.getElementById('input-line-stops').value.trim()
+      };
+      linesData.push(newLine);
+      saveData();
+      renderLines();
+      document.getElementById('form-line').reset();
+      alert("Ligne enregistrée !");
+    }
+
+    // Formulaire Photo
+    function handlePhotoSubmit(e) {
+      e.preventDefault();
+      const newPhoto = {
+        parc: document.getElementById('input-photo-parc').value.trim(),
+        url: document.getElementById('input-photo-url').value.trim(),
+        author: document.getElementById('input-photo-author').value.trim(),
+        location: document.getElementById('input-photo-location').value.trim(),
+        date: document.getElementById('input-photo-date').value
+      };
+      photosData.unshift(newPhoto);
+      saveData();
+      renderGallery();
+      document.getElementById('form-photo').reset();
+      alert("Photo ajoutée avec succès à la photothèque !");
+    }
+
+    // Formulaire Personnel
+    function handleStaffSubmit(e) {
+      e.preventDefault();
+      const newMember = {
+        name: document.getElementById('input-staff-name').value.trim(),
+        email: document.getElementById('input-staff-email').value.trim(),
+        role: document.getElementById('input-staff-role').value
+      };
+      staffData.push(newMember);
+      saveData();
+      renderStaff();
+      document.getElementById('form-staff').reset();
+      alert("Nouveau membre d'équipe ajouté !");
+    }
+
+    function renderStaff() {
+      const tbody = document.getElementById('staff-table-body');
+      tbody.innerHTML = staffData.map((m, idx) => `
+        <tr class="hover:bg-slate-900/50">
+          <td class="p-3 font-semibold text-white">${m.name}</td>
+          <td class="p-3 text-slate-400">${m.email}</td>
+          <td class="p-3"><span class="bg-blue-950 text-blue-300 border border-blue-800 px-2 py-0.5 rounded text-[11px] font-bold">${m.role}</span></td>
+          <td class="p-3 text-right">
+            ${idx > 0 ? `<button onclick="deleteStaff(${idx})" class="text-rose-400 hover:text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>` : '<span class="text-slate-600 text-xs">Protégé</span>'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function deleteStaff(idx) {
+      if (confirm("Supprimer ce membre ?")) {
+        staffData.splice(idx, 1);
+        saveData();
+        renderStaff();
+      }
+    }
+
+    // Export & Import Sauvegarde JSON
+    function exportDatabase() {
+      const fullDB = { fleetData, linesData, photosData, staffData, exportedAt: new Date().toISOString() };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullDB, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `twisto_db_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importDatabase(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported.fleetData) fleetData = imported.fleetData;
+          if (imported.linesData) linesData = imported.linesData;
+          if (imported.photosData) photosData = imported.photosData;
+          if (imported.staffData) staffData = imported.staffData;
+          saveData();
+          renderFleetTable();
+          renderLines();
+          renderGallery();
+          renderStaff();
+          alert("Base de données restaurée avec succès !");
+        } catch(err) {
+          alert("Fichier JSON invalide.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ================= 9. NAVIGATION GLOBALE =================
+    function navigate(section) {
+      ['fleet', 'lines', 'gallery', 'admin'].forEach(s => {
+        document.getElementById(`section-${s}`).classList.toggle('hidden', s !== section);
+      });
+
+      // Tabs Header state
+      document.querySelectorAll('.nav-tab').forEach(t => {
+        t.classList.remove('bg-blue-600', 'text-white', 'shadow');
+        t.classList.add('text-slate-300');
+      });
+      const currentNav = document.getElementById(`nav-${section}`);
+      if (currentNav && section !== 'admin') {
+        currentNav.classList.add('bg-blue-600', 'text-white', 'shadow');
+        currentNav.classList.remove('text-slate-300');
+      }
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    function updateStats() {
+      const inService = fleetData.filter(b => b.statut === 'En service').length;
+      document.getElementById('header-stats').innerHTML = `
+        <span><strong>${fleetData.length}</strong> véhicules répertoriés</span>
+        <span>|</span>
+        <span class="text-emerald-400"><strong>${inService}</strong> en service actif</span>
+      `;
+    }
+
+    // Initialisation au chargement
+    document.addEventListener('DOMContentLoaded', () => {
+      renderFleetTable();
+      renderLines();
+      renderGallery();
+      renderStaff();
+      updateStats();
+    });
+  </script>
+</body>
+</html>

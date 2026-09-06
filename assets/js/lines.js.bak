@@ -1,0 +1,400 @@
+/**
+ * Histo14Bus - Twisto Network Lines Module & Interactive Route Map Generator
+ * Full Twisto Caen la mer lines, interactive thermometer line plans & validity dates
+ */
+
+let linesData = [];
+let activeLineCategory = 'all';
+let currentLineDirection = 'forward'; // 'forward' (A->B) or 'reverse' (B->A)
+
+async function initLines() {
+  try {
+    const localLines = localStorage.getItem('histo14_lines_data');
+    if (localLines) {
+      try {
+        linesData = JSON.parse(localLines);
+      } catch (e) {
+        console.warn('Erreur lecture localLines:', e);
+      }
+    }
+
+    if (!linesData || linesData.length < 50) {
+      const response = await fetch('data/lines.json?t=' + Date.now());
+      linesData = await response.json();
+      localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
+    }
+
+    renderLines();
+  } catch (error) {
+    console.error('Erreur lors du chargement des lignes:', error);
+  }
+}
+
+function filterLinesByCategory(category, btnElement) {
+  activeLineCategory = category;
+  document.querySelectorAll('.line-category-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  if (btnElement) btnElement.classList.add('active');
+  renderLines();
+}
+
+function renderLines() {
+  const container = document.getElementById('lines-container');
+  if (!container) return;
+
+  const filtered = linesData.filter(line => {
+    if (activeLineCategory === 'all') return true;
+    if (activeLineCategory === 'Tramway') return line.category === 'Tramway';
+    if (activeLineCategory === 'Liane') return line.category === 'Liane';
+    if (activeLineCategory === 'Urbaine') return line.category === 'Urbaine' || line.category === 'Express';
+    if (activeLineCategory === 'Périurbaine') return line.category === 'Périurbaine';
+    if (activeLineCategory === 'Scolaire') return line.category === 'Scolaire' || line.category === 'Complémentaire';
+    if (activeLineCategory === 'Flex') return line.category === 'Flex' || line.category === 'Navette' || line.category === 'Transport à la demande' || line.category === 'Nocturne';
+    return line.category === activeLineCategory;
+  });
+
+  container.innerHTML = filtered.map(line => renderLineCard(line)).join('');
+  lucide.createIcons();
+}
+
+function renderLineCard(line) {
+  const isTram = line.type === 'Tramway';
+  const planDate = line.planDate || '1er Septembre 2025 (Édition 2025/2026)';
+
+  return `
+    <div class="transit-card bg-white dark:bg-slate-800/90 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-lg flex flex-col justify-between cursor-pointer group" onclick="openLineModal('${line.id}')">
+      <div>
+        <!-- Line Badge and Category -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <span class="line-pill text-base font-extrabold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5" style="background-color: ${line.color}; color: ${line.textColor};">
+              <i data-lucide="${isTram ? 'tram-front' : 'bus'}" class="w-4 h-4"></i>
+              ${line.number}
+            </span>
+            <div>
+              <h4 class="font-bold text-slate-900 dark:text-white leading-tight">${line.name}</h4>
+              <span class="text-xs text-slate-400 font-medium">${line.category}</span>
+            </div>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300">
+            ${line.frequency}
+          </span>
+        </div>
+
+        <!-- Terminus Route -->
+        <div class="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-800/80 space-y-1.5 text-xs">
+          <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+            <span class="font-semibold truncate">${line.terminusA}</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-400 pl-1">
+            <span class="w-0.5 h-2 bg-slate-300 dark:bg-slate-700"></span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0"></span>
+            <span class="font-semibold truncate">${line.terminusB}</span>
+          </div>
+        </div>
+
+        <!-- Plan Date Badge -->
+        <div class="mt-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
+          <span class="flex items-center gap-1 font-medium truncate">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i> Plan au : <strong class="text-slate-700 dark:text-slate-200">${planDate}</strong>
+          </span>
+          <span class="text-emerald-600 dark:text-emerald-400 font-bold ml-1 flex-shrink-0">Twisto.fr</span>
+        </div>
+
+        <!-- Short Description -->
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2.5 line-clamp-2">
+          ${line.description}
+        </p>
+      </div>
+
+      <!-- Footer & Action -->
+      <div class="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <span class="text-xs text-slate-400 flex items-center gap-1">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i> ${line.stops ? line.stops.length : line.stationsCount} arrêts
+        </span>
+        <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+          Voir plan & fiche <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+function openLineModal(lineId) {
+  const line = linesData.find(l => l.id === lineId);
+  if (!line) return;
+
+  currentLineDirection = 'forward';
+
+  const modal = document.getElementById('line-modal');
+  const modalContent = document.getElementById('line-modal-content');
+  if (!modal || !modalContent) return;
+
+  renderLineModalBody(line);
+
+  modal.classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
+  lucide.createIcons();
+}
+
+function toggleLineDirection(lineId) {
+  currentLineDirection = currentLineDirection === 'forward' ? 'reverse' : 'forward';
+  const line = linesData.find(l => l.id === lineId);
+  if (line) {
+    renderLineModalBody(line);
+    lucide.createIcons();
+  }
+}
+
+function renderLineModalBody(line) {
+  const modalContent = document.getElementById('line-modal-content');
+  if (!modalContent) return;
+
+  const isTram = line.type === 'Tramway';
+  const planDate = line.planDate || '1er Septembre 2025 (Édition 2025/2026)';
+  const planUrl = line.planUrl || 'https://www.twisto.fr/se-deplacer/plans-du-reseau.html';
+  const schedulePdfUrl = line.schedulePdfUrl || 'https://www.twisto.fr/';
+
+  // Compute stops according to current direction
+  let stopsList = line.stops && line.stops.length > 0 ? [...line.stops] : [line.terminusA, "Arrêt intermédiaire", line.terminusB];
+  if (currentLineDirection === 'reverse') {
+    stopsList.reverse();
+  }
+
+  const startTerminus = stopsList[0];
+  const endTerminus = stopsList[stopsList.length - 1];
+
+  // Assigned vehicles
+  const assignedVehicles = (typeof fleetData !== 'undefined' ? fleetData : []).filter(v => 
+    v.lines && v.lines.some(l => 
+      l.toLowerCase() === line.id.toLowerCase() || 
+      l.toLowerCase() === line.number.toLowerCase() || 
+      l.toLowerCase() === `ligne ${line.number}`.toLowerCase() ||
+      l.toLowerCase() === `liane ${line.number}`.toLowerCase()
+    )
+  );
+
+  modalContent.innerHTML = `
+    <!-- Header with Line Theme Color -->
+    <div class="p-6 sm:p-8 rounded-t-3xl text-white relative overflow-hidden" style="background: linear-gradient(135deg, ${line.color} 0%, #0F172A 100%);">
+      <button onclick="closeLineModal()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 flex items-center justify-center transition z-10">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-4 mb-4">
+        <span class="px-4 py-2 rounded-2xl font-black text-2xl shadow-xl flex items-center gap-2 border border-white/20" style="background-color: ${line.color}; color: ${line.textColor};">
+          <i data-lucide="${isTram ? 'tram-front' : 'bus'}" class="w-6 h-6"></i>
+          ${line.number}
+        </span>
+        <div>
+          <span class="text-xs font-bold text-white/80 uppercase tracking-widest">${line.category} • Twisto Caen la mer</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold leading-tight">${line.name}</h2>
+        </div>
+      </div>
+
+      <!-- Plan Date & Twisto Official Badge -->
+      <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-white/20">
+        <span class="px-3 py-1 bg-white/15 backdrop-blur-md rounded-xl text-xs font-bold flex items-center gap-1.5 border border-white/20 text-emerald-200">
+          <i data-lucide="calendar-check" class="w-4 h-4 text-emerald-400"></i>
+          Date du Plan : <strong>${planDate}</strong>
+        </span>
+        <a href="${planUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl text-xs font-semibold flex items-center gap-1 transition text-white border border-white/15" title="Consulter sur le site officiel Twisto.fr">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> twisto.fr
+        </a>
+        <a href="${schedulePdfUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 bg-emerald-600/80 hover:bg-emerald-600 backdrop-blur-md rounded-xl text-xs font-bold flex items-center gap-1 transition text-white border border-emerald-400/30">
+          <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Fiche Horaires PDF
+        </a>
+      </div>
+
+      <!-- Metrics -->
+      <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/15 text-center">
+        <div>
+          <span class="text-xs text-white/70 block">Arrêts</span>
+          <span class="text-base font-bold">${stopsList.length} stations</span>
+        </div>
+        <div>
+          <span class="text-xs text-white/70 block">Fréquence</span>
+          <span class="text-base font-bold">${line.frequency}</span>
+        </div>
+        <div>
+          <span class="text-xs text-white/70 block">Matériel</span>
+          <span class="text-base font-bold">${line.type}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="p-6 sm:p-8 space-y-6 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-b-3xl max-h-[72vh] overflow-y-auto">
+      
+      <!-- INTERACTIVE THERMOMETER LINE PLAN (PLAN DE LIGNE DÉTAILLÉ) -->
+      <div>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h3 class="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> Plan de Ligne Interactif (Thermomètre de Ligne)
+          </h3>
+
+          <!-- Direction Toggle Button -->
+          <button type="button" onclick="toggleLineDirection('${line.id}')" class="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i>
+            Inverser le sens : <strong>${startTerminus} ➔ ${endTerminus}</strong>
+          </button>
+        </div>
+
+        <!-- Plan Meta Info Box -->
+        <div class="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 mb-4 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
+            <i data-lucide="info" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+            <span>Schéma officiel de la ligne conforme au plan réseau du <strong>${planDate}</strong>.</span>
+          </div>
+          <span class="font-bold text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">${stopsList.length} Arrêts</span>
+        </div>
+
+        <!-- Thermometer Route Visual Scheme -->
+        <div class="p-5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+          <div class="relative pl-8">
+            <!-- Vertical line (inline style to support dynamic colors) -->
+            <div class="absolute left-[11px] top-3 bottom-3 w-1.5 rounded-full" style="background-color: ${line.color};"></div>
+
+            <div class="space-y-2.5">
+              ${stopsList.map((stop, index) => {
+                const isStart = index === 0;
+                const isEnd = index === stopsList.length - 1;
+                const isMajor = isStart || isEnd ||
+                  stop.includes('Gare') || stop.includes('Théâtre') || stop.includes('Université') ||
+                  stop.includes('Mairie') || stop.includes('Centre') || stop.includes('Ifs') ||
+                  stop.includes('Campus') || stop.includes('CHU') || stop.includes('Hôpital') ||
+                  stop.includes('Hérouville') || stop.includes('Mondeville') || stop.includes('Carpiquet');
+
+                // Dot styling
+                let dotStyle = '';
+                let dotClass = '';
+                if (isStart) {
+                  dotStyle = `background-color: ${line.color}; border: 3px solid white; box-shadow: 0 0 0 3px ${line.color}40;`;
+                  dotClass = 'w-5 h-5 rounded-full z-10 relative';
+                } else if (isEnd) {
+                  dotStyle = 'background-color: #ef4444; border: 3px solid white; box-shadow: 0 0 0 3px #ef444440;';
+                  dotClass = 'w-5 h-5 rounded-full z-10 relative';
+                } else if (isMajor) {
+                  dotStyle = `background-color: ${line.color}; border: 2px solid white;`;
+                  dotClass = 'w-4 h-4 rounded-full z-10 relative';
+                } else {
+                  dotStyle = 'background-color: #cbd5e1; border: 2px solid white;';
+                  dotClass = 'w-3 h-3 rounded-full z-10 relative ml-0.5';
+                }
+
+                return `
+                  <div class="flex items-center gap-3 group">
+                    <!-- Dot -->
+                    <div class="${dotClass} flex-shrink-0" style="${dotStyle}"></div>
+
+                    <!-- Stop Label -->
+                    <div class="flex items-center gap-2 flex-1 py-1">
+                      <span class="${isStart || isEnd
+                        ? 'text-sm font-black text-slate-900 dark:text-white'
+                        : isMajor
+                          ? 'text-xs font-bold text-slate-800 dark:text-slate-100'
+                          : 'text-xs font-medium text-slate-500 dark:text-slate-400'
+                      } leading-tight">
+                        ${stop}
+                      </span>
+                      ${isStart ? '<span class="flex-shrink-0 text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/30">Départ</span>' : ''}
+                      ${isEnd ? '<span class="flex-shrink-0 text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-300/30">Terminus</span>' : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Description & Tracé -->
+      <div>
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+          <i data-lucide="map-pin" class="w-4 h-4 text-emerald-600"></i> Tracé & Quartiers Traversés
+        </h3>
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800 leading-relaxed">
+          ${line.description}
+        </p>
+      </div>
+
+      <!-- Rolling Stock (Matériel Roulant) -->
+      <div>
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i data-lucide="bus" class="w-4 h-4 text-emerald-600"></i> Matériel Habituellement Engagé
+        </h3>
+        <div class="flex flex-wrap gap-2">
+          ${line.rollingStock ? (Array.isArray(line.rollingStock) ? line.rollingStock : [line.rollingStock]).map(m => `
+            <span class="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> ${m}
+            </span>
+          `).join('') : '<span class="text-xs text-slate-400">Bus Standard / Articulé</span>'}
+        </div>
+      </div>
+
+      <!-- History of the line -->
+      ${line.history ? `
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+            <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i> Historique de la ligne
+          </h3>
+          <p class="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+            ${line.history}
+          </p>
+        </div>
+      ` : ''}
+
+      <!-- Assigned Fleet in Database -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="list" class="w-4 h-4 text-emerald-600"></i> Véhicules Référencés sur cette Ligne (${assignedVehicles.length})
+          </h3>
+        </div>
+        ${assignedVehicles.length > 0 ? `
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            ${assignedVehicles.map(v => `
+              <div onclick="closeLineModal(); openVehicleModal('${v.id}')" class="p-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer transition flex items-center justify-between group">
+                <div>
+                  <span class="font-bold text-xs text-slate-900 dark:text-white block group-hover:text-emerald-600">N° ${v.number}</span>
+                  <span class="text-[10px] text-slate-400 truncate block">${v.model}</span>
+                </div>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-transform"></i>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <p class="text-xs text-slate-400 italic">Aucun véhicule actuellement indexé avec cette ligne spécifique dans la base.</p>
+        `}
+      </div>
+
+    </div>
+  `;
+}
+
+function closeLineModal() {
+  const modal = document.getElementById('line-modal');
+  if (modal) modal.classList.add('hidden');
+  document.body.classList.remove('overflow-hidden');
+}
+
+async function resetLinesToOfficialTwisto() {
+  try {
+    const response = await fetch('data/lines.json?t=' + Date.now());
+    linesData = await response.json();
+    localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
+    renderLines();
+    if (typeof showToast === 'function') {
+      showToast(`Réseau Twisto synchronisé (${linesData.length} lignes chargées) !`);
+    }
+  } catch (error) {
+    console.error('Erreur synchronisation Twisto:', error);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', initLines);
+

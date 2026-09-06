@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parc Véhicules — Twisto | Histo14Bus</title>
+<meta name="theme-color" content="#00875A">
+<meta name="description" content="État de parc complet du réseau Twisto (Caen la mer) : bus, cars et tramways groupés par gabarit et modèle, avec fiches véhicule détaillées (immatriculation, âge, dépôt, exploitant, énergie).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F8F7; --surface:#FFFFFF; --surface-soft:#EFF5F2; --border:#E2E9E6;
+    --text:#10231C; --text-dim:#5B6B65; --text-faint:#93A29C;
+    --brand:#00875A; --brand-dark:#046245; --brand-soft:#E4F5EE;
+    --diesel:#6B7680; --diesel-soft:#EEF0F1;
+    --gaz:#D97706; --gaz-soft:#FCF0DD;
+    --elec:#0D9488; --elec-soft:#E1F5F2;
+    --radius:14px; --sans:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+    --shadow:0 1px 2px rgba(16,35,28,0.04), 0 4px 14px rgba(16,35,28,0.05);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  a{color:inherit; text-decoration:none;}
+
+  .topbar{position:sticky; top:0; z-index:40; background:rgba(255,255,255,0.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border);}
+  .topbar-inner{max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{width:32px;height:32px;border-radius:9px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#fff;}
+  .brand-name{font-weight:800; font-size:14.5px;}
+  .brand-sub{font-size:11px; color:var(--text-dim);}
+  nav.mainnav{display:flex; gap:4px; flex-wrap:wrap;}
+  nav.mainnav a{font-size:13.5px; font-weight:600; color:var(--text-dim); padding:8px 12px; border-radius:8px;}
+  nav.mainnav a:hover{background:var(--surface-soft); color:var(--text);}
+  nav.mainnav a.active{background:var(--brand-soft); color:var(--brand-dark);}
+
+  header.hero{background:linear-gradient(180deg,var(--brand-soft) 0%, var(--bg) 100%); border-bottom:1px solid var(--border);}
+  .hero-inner{max-width:1200px; margin:0 auto; padding:40px 24px 26px;}
+  .eyebrow{font-family:var(--mono); font-size:11.5px; color:var(--brand-dark); letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; display:inline-flex; align-items:center; gap:8px; background:#fff; padding:5px 11px; border-radius:100px; border:1px solid var(--border);}
+  h1{font-size:clamp(26px,3.6vw,38px); line-height:1.1; margin:14px 0 10px; font-weight:800; letter-spacing:-0.01em;}
+  .lede{color:var(--text-dim); font-size:15px; max-width:700px; line-height:1.6; margin:0 0 22px;}
+  .stats{display:grid; grid-template-columns:repeat(5,1fr); gap:10px;}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow);}
+  .stat b{display:block; font-size:21px; font-weight:800; color:var(--brand-dark);}
+  .stat span{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;}
+
+  main{max-width:1200px; margin:0 auto; padding:26px 24px 60px;}
+
+  .toolbar{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:22px;}
+  .toolbar input[type="text"]{flex:1 1 220px; border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-family:var(--sans); font-size:13.5px;}
+  .toolbar select{border:1px solid var(--border); border-radius:9px; padding:9px 10px; font-family:var(--sans); font-size:13px; background:#fff;}
+  .toolbar .count{margin-left:auto; font-size:12.5px; color:var(--text-dim); font-family:var(--mono);}
+
+  .view-toggle{display:flex; gap:8px; margin-bottom:16px;}
+  .view-btn{font-family:var(--sans); font-size:12.5px; font-weight:700; padding:9px 14px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--text-dim); cursor:pointer;}
+  .view-btn:hover{border-color:var(--brand); color:var(--brand-dark);}
+  .view-btn.active{background:var(--brand); border-color:var(--brand); color:#fff;}
+
+  table.flatlist{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow);}
+  table.flatlist th{font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); text-align:left; padding:10px 14px; background:var(--surface-soft); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap;}
+  table.flatlist th:hover{color:var(--brand-dark);}
+  table.flatlist th .sort-arrow{font-size:9px; margin-left:3px; color:var(--text-faint);}
+  table.flatlist td{font-size:12.5px; padding:9px 14px; border-top:1px dashed var(--border); color:var(--text-dim);}
+  table.flatlist td.num{font-family:var(--mono); font-weight:700; color:var(--text);}
+  table.flatlist td.plate{font-family:var(--mono); color:var(--text);}
+  table.flatlist tr:hover td{background:var(--surface-soft);}
+  table.flatlist td .mini-tag{font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:100px;}
+  table.flatlist td .mini-tag.diesel{background:var(--diesel-soft); color:var(--diesel);}
+  table.flatlist td .mini-tag.gaz{background:var(--gaz-soft); color:var(--gaz);}
+  table.flatlist td .mini-tag.elec{background:var(--elec-soft); color:var(--elec);}
+
+  .gabarit-section{margin-bottom:8px;}
+  .gabarit-head{display:flex; align-items:center; gap:10px; padding:14px 4px; cursor:pointer; user-select:none;}
+  .gabarit-head h2{font-size:16px; margin:0; font-weight:800;}
+  .gabarit-head .count-badge{font-family:var(--mono); font-size:12px; background:var(--brand-soft); color:var(--brand-dark); padding:3px 9px; border-radius:100px; font-weight:700;}
+  .gabarit-head .chevron{margin-left:auto; color:var(--text-faint); transition:transform .2s ease; font-size:13px;}
+  .gabarit-head.collapsed .chevron{transform:rotate(-90deg);}
+  .gabarit-body{display:flex; flex-direction:column; gap:10px; margin-bottom:18px;}
+  .gabarit-body.collapsed{display:none;}
+
+  .model-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); overflow:hidden;}
+  .model-head{display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer;}
+  .model-head .modele-name{font-weight:700; font-size:14px;}
+  .model-head .constructeur{font-size:11.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;}
+  .model-head .ratio{font-family:var(--mono); font-size:12.5px; color:var(--brand-dark); font-weight:700; margin-left:auto;}
+  .model-head .energy-tag{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 8px; border-radius:100px;}
+  .energy-tag.diesel{background:var(--diesel-soft); color:var(--diesel);}
+  .energy-tag.gaz{background:var(--gaz-soft); color:var(--gaz);}
+  .energy-tag.elec{background:var(--elec-soft); color:var(--elec);}
+  .model-head .chev{color:var(--text-faint); font-size:12px; transition:transform .2s ease;}
+  .model-head.open .chev{transform:rotate(90deg);}
+
+  table.vlist{width:100%; border-collapse:collapse; display:none;}
+  table.vlist.open{display:table;}
+  table.vlist th{font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); text-align:left; padding:8px 16px; border-top:1px solid var(--border); background:var(--surface-soft);}
+  table.vlist td{font-size:12.5px; padding:8px 16px; border-top:1px dashed var(--border); color:var(--text-dim);}
+  table.vlist td.num{font-family:var(--mono); font-weight:700; color:var(--text);}
+  table.vlist td.plate{font-family:var(--mono); color:var(--text);}
+  table.vlist tr:hover td{background:var(--surface-soft);}
+
+  .empty{text-align:center; padding:50px 20px; color:var(--text-dim); font-size:14px;}
+
+  footer{border-top:1px solid var(--border); padding:26px 24px 50px; max-width:1200px; margin:0 auto; color:var(--text-faint); font-size:12px; line-height:1.7;}
+  footer a{color:var(--brand-dark); text-decoration:underline;}
+
+  @media (max-width:760px){ .stats{grid-template-columns:repeat(2,1fr);} table.vlist{font-size:11px;} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark">H14</div>
+      <div>
+        <div class="brand-name">Histo14Bus v2.0</div>
+        <div class="brand-sub">Passion Transports Normandie</div>
+      </div>
+    </div>
+    <nav class="mainnav">
+      <a class="active" href="#">Parc Véhicules</a>
+      <a href="twisto-plans-lignes.html">Lignes &amp; Tram</a>
+      <a href="twisto-carte-interactive.html">Carte du réseau</a>
+      <a href="https://historiquebusnormandie.netlify.app/#news">Le MAG</a>
+      <a href="https://historiquebusnormandie.netlify.app/#gallery">Galerie</a>
+      <a href="https://historiquebusnormandie.netlify.app/#about">L'Équipe</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">● Réseau Twisto — état de parc 2026</span>
+    <h1>Parc Véhicules</h1>
+    <p class="lede">Bus, cars et tramways du réseau Twisto (Caen la mer), classés par gabarit puis par modèle — présentation inspirée de NaoTC et tc-infos. Cliquez un modèle pour dérouler la liste des véhicules (numéro de parc, immatriculation, âge, dépôt, exploitant).</p>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Rechercher un n° de parc ou une immatriculation…">
+    <select id="f-energie">
+      <option value="">Toutes énergies</option>
+      <option value="diesel">Diesel</option>
+      <option value="gaz">Gaz / BioGNV</option>
+      <option value="elec">Électrique</option>
+    </select>
+    <select id="f-depot">
+      <option value="">Tous dépôts</option>
+    </select>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="view-toggle">
+    <button class="view-btn active" id="view-groupe">📁 Par gabarit / modèle</button>
+    <button class="view-btn" id="view-numero">🔢 Tous les véhicules par n° de parc</button>
+  </div>
+  <div id="content"></div>
+</main>
+
+<footer>
+  Ce site est un portail amateur et bénévole réalisé par des passionnés de transports en commun. Il n'est pas affilié officiellement à Keolis, RATP Dev, la Communauté urbaine Caen la mer, ni à la marque commerciale Twisto. Données véhicules d'après <a href="https://tc-infos.fr/reseau/27" target="_blank" rel="noopener">tc-infos.fr</a>, mise en forme inspirée de <a href="https://naotc.fr" target="_blank" rel="noopener">naotc.fr</a>. La fiche historique du parc sur <a href="https://businfo14.wixsite.com/histo14bus/twisto" target="_blank" rel="noopener">l'ancien site Histo14Bus (Wix)</a> a été consultée mais son tableau de données, généré en JavaScript, n'a pas pu être extrait automatiquement — si vous avez ces archives, elles peuvent être réintégrées ici. Âges calculés au 30/08/2026. Informations fournies à titre indicatif et pouvant comporter des erreurs. © Histo14Bus 2024–2026.
+</footer>
+
+<script>
+const BUS = [
+["050","Dietrich","City 23","FK-531-WJ","2019-10-01","RD Caen la Mer","Hérouville Sphère"],
+["051","Dietrich","City 23","FK-632-WJ","2019-10-01","RD Caen la Mer","Hérouville Sphère"],
+["052","Dietrich","City 23","FK-711-WJ","2019-10-01","RD Caen la Mer","Hérouville Sphère"],
+["053","Dietrich","City 23","FK-770-WJ","2019-10-01","Autocars Delcourt","Calvados - Cagny"],
+["054","Dietrich","City 23","FK-828-WJ","2019-10-01","Autocars Delcourt","Calvados - Cagny"],
+["055","Dietrich","City 23","FK-887-WJ","2019-10-01","Autocars Delcourt","Calvados - Cagny"],
+["056","Dietrich","City 23","FK-958-WJ","2019-10-01","RD Caen la Mer","Hérouville Sphère"],
+["065","Bolloré","Bluebus 6","ES-535-DA","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["066","Bolloré","Bluebus 6","ES-465-DA","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["067","Bolloré","Bluebus 6","ES-558-DA","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["072","Bolloré","Bluebus 6","FG-973-XF","2019-07-01","RD Caen la Mer","Hérouville Sphère"],
+["092","Heuliez Bus","GX 137","DY-312-ZL","2016-01-01","RD Caen la Mer","Hérouville Sphère"],
+["093","Heuliez Bus","GX 137","DY-340-ZL","2016-01-01","RD Caen la Mer","Hérouville Sphère"],
+["094","Heuliez Bus","GX 137","DY-374-ZL","2016-01-01","RD Caen la Mer","Hérouville Sphère"],
+["136","Heuliez Bus","GX 327","DR-994-ZD","2006-09-01","Keolis Pays Normands","Mondeville"],
+["137","Heuliez Bus","GX 327","DR-843-ZD","2006-09-01","Keolis Pays Normands","Giberville"],
+["138","Heuliez Bus","GX 327","DS-539-XN","2006-09-01","Keolis Pays Normands","Giberville"],
+["139","Heuliez Bus","GX 327","BG-082-JM","2006-09-01","Keolis Pays Normands","Giberville"],
+["140","Heuliez Bus","GX 327","DR-445-ZE","2006-09-01","Keolis Pays Normands","Giberville"],
+["141","Heuliez Bus","GX 327","BE-933-CB","2006-09-01","Keolis Pays Normands","Giberville"],
+["142","Heuliez Bus","GX 327","DV-545-WP","2006-09-01","Keolis Pays Normands","Giberville"],
+["143","Heuliez Bus","GX 327","DT-515-HB","2006-09-01","Keolis Pays Normands","Giberville"],
+["144","Heuliez Bus","GX 327","DT-532-HB","2006-09-01","Keolis Pays Normands","Giberville"],
+["145","Heuliez Bus","GX 327","DV-947-WQ","2006-09-01","Keolis Pays Normands","Giberville"],
+["146","Heuliez Bus","GX 327","DV-683-WP","2009-01-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["147","Heuliez Bus","GX 327","DV-574-WP","2009-01-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["148","Heuliez Bus","GX 327","AS-838-XX","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["149","Heuliez Bus","GX 327","AS-030-VZ","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["150","Heuliez Bus","GX 327","AS-622-XX","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["151","Heuliez Bus","GX 327","AS-742-XX","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["152","Heuliez Bus","GX 327","AS-012-XY","2010-05-01","RD Caen la Mer","Hérouville Sphère"],
+["153","Heuliez Bus","GX 327","AS-913-XX","2010-05-01","RD Caen la Mer","Hérouville Sphère"],
+["155","Heuliez Bus","GX 327","AS-071-VZ","2010-05-01","RD Caen la Mer","Hérouville Sphère"],
+["156","Heuliez Bus","GX 327","AS-531-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["157","Heuliez Bus","GX 327","AT-329-MK","2010-05-01","RD Caen la Mer","Hérouville Sphère"],
+["158","Heuliez Bus","GX 327","AT-296-MK","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["159","Heuliez Bus","GX 327","AT-070-MK","2010-05-01","RD Caen la Mer","Hérouville Sphère"],
+["160","Heuliez Bus","GX 327","AS-635-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["161","Heuliez Bus","GX 327","AS-592-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["162","Heuliez Bus","GX 327","AS-782-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["163","Heuliez Bus","GX 327","AS-726-XN","2010-05-01","RD Caen la Mer","Hérouville Sphère"],
+["164","Heuliez Bus","GX 327","AS-879-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["165","Heuliez Bus","GX 327","AS-842-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["166","Heuliez Bus","GX 327","AS-957-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["167","Heuliez Bus","GX 327","AS-997-XN","2010-05-01","Keolis Caen Mobilités","Hérouville Sphère"],
+["171","Irisbus","Crealis 12","DD-259-CG","2014-02-01","RD Caen la Mer","Hérouville Sphère"],
+["172","Irisbus","Crealis 12","DE-376-GD","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["173","Irisbus","Crealis 12","DE-576-CA","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["174","Irisbus","Crealis 12","DD-687-RK","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["175","Irisbus","Crealis 12","DE-258-XX","2014-04-01","RD Caen la Mer","Hérouville Sphère"],
+["176","Irisbus","Crealis 12","DE-424-GD","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["177","Irisbus","Crealis 12","DE-483-SG","2014-04-01","RD Caen la Mer","Hérouville Sphère"],
+["178","Irisbus","Crealis 12","DE-613-XX","2014-04-01","RD Caen la Mer","Hérouville Sphère"],
+["179","Irisbus","Crealis 12","DE-060-PM","2014-04-01","RD Caen la Mer","Hérouville Sphère"],
+["180","Irisbus","Crealis 12","DE-796-PL","2014-04-01","RD Caen la Mer","Hérouville Sphère"],
+["181","Irisbus","Crealis 12","DE-840-CA","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["182","Irisbus","Crealis 12","DD-525-SV","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["183","Irisbus","Crealis 12","DD-634-SV","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["184","Irisbus","Crealis 12","DD-854-YP","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["185","Irisbus","Crealis 12","DD-408-RQ","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["186","Irisbus","Crealis 12","DD-544-RQ","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["188","Irisbus","Crealis 12","DD-779-RQ","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["190","Heuliez Bus","GX 137","FJ-153-RQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["191","Heuliez Bus","GX 137","FJ-202-RP","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["192","Heuliez Bus","GX 137","FJ-472-RP","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["287","Irisbus","Crossway LE Line","AQ-157-FC","2010-04-01","Autocars Delcourt","Calvados - Cagny"],
+["288","Irisbus","Crossway LE Line","AQ-669-FB","2010-04-01","Autocars Delcourt","Calvados - Cagny"],
+["330","Heuliez Bus","GX 427","AS-696-XX","2010-05-01","Autocars Delcourt","Calvados - Cagny"],
+["331","Heuliez Bus","GX 427","AS-496-XN","2010-05-01","Autocars Delcourt","Calvados - Cagny"],
+["332","Heuliez Bus","GX 427","AT-117-MK","2010-06-01","RD Caen la Mer","Hérouville Sphère"],
+["360","Irisbus","Citelis 18","DV-818-WP","2009-03-01","RD Caen la Mer","Hérouville Sphère"],
+["361","Irisbus","Citelis 18","DS-655-HJ","2009-03-01","RD Caen la Mer","Hérouville Sphère"],
+["362","Irisbus","Citelis 18","DR-247-ZE","2009-03-01","RD Caen la Mer","Hérouville Sphère"],
+["363","Irisbus","Citelis 18","DS-484-LZ","2009-03-01","RD Caen la Mer","Hérouville Sphère"],
+["364","Irisbus","Citelis 18","DR-165-ZE","2009-03-01","RD Caen la Mer","Hérouville Sphère"],
+["365","Irisbus","Citelis 18","DR-808-ZS","2009-03-01","RD Caen la Mer","Hérouville Sphère"],
+["369","Irisbus","Crealis 18","DD-689-CG","2014-02-01","Keolis Pays Normands","Mondeville"],
+["370","Irisbus","Crealis 18","DD-064-YQ","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["371","Irisbus","Crealis 18","DF-521-GL","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["372","Irisbus","Crealis 18","DE-890-SG","2014-04-01","RD Caen la Mer","Hérouville Sphère"],
+["373","Irisbus","Crealis 18","DE-186-SH","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["374","Irisbus","Crealis 18","DE-384-FK","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["375","Irisbus","Crealis 18","DE-623-FK","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["376","Irisbus","Crealis 18","DE-452-QR","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["378","Irisbus","Crealis 18","DD-885-KA","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["379","Irisbus","Crealis 18","DD-075-RR","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["380","Irisbus","Crealis 18","DD-604-PJ","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["381","Irisbus","Crealis 18","DD-745-PJ","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["382","Irisbus","Crealis 18","DD-062-KB","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["383","Irisbus","Crealis 18","DE-206-CB","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["384","Irisbus","Crealis 18","DD-341-RR","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["385","Irisbus","Crealis 18","DE-513-CB","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["386","Irisbus","Crealis 18","DD-461-RR","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["387","Irisbus","Crealis 18","DE-921-CB","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["388","Irisbus","Crealis 18","DE-760-CB","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["389","Irisbus","Crealis 18","DE-833-FK","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["390","Irisbus","Crealis 18","DE-318-PM","2014-03-01","RD Caen la Mer","Hérouville Sphère"],
+["397","Irisbus","Citelis 18","GZ-533-WM","2007-06-01","RD Caen la Mer","Hérouville Sphère"],
+["402","Iveco Bus","Urbanway 12","EB-200-PY","2016-04-01","RD Caen la Mer","Hérouville Sphère"],
+["403","Iveco Bus","Urbanway 12","EB-236-PY","2016-04-01","RD Caen la Mer","Hérouville Sphère"],
+["404","Iveco Bus","Urbanway 12","EB-295-PY","2016-04-01","RD Caen la Mer","Hérouville Sphère"],
+["405","Iveco Bus","Urbanway 12","EB-260-PY","2016-04-01","RD Caen la Mer","Hérouville Sphère"],
+["406","Iveco Bus","Urbanway 12","EB-166-PY","2016-04-01","RD Caen la Mer","Hérouville Sphère"],
+["410","Mercedes-Benz","Citaro C2","ER-579-LV","2017-10-01","Autocars Delcourt","Calvados - Cagny"],
+["411","Mercedes-Benz","Citaro C2","ER-713-WN","2017-11-01","Autocars Delcourt","Calvados - Cagny"],
+["412","Mercedes-Benz","Citaro C2","ES-667-DB","2017-11-01","Autocars Delcourt","Calvados - Cagny"],
+["413","Mercedes-Benz","Citaro C2","ER-276-ZZ","2017-11-01","Autocars Delcourt","Calvados - Cagny"],
+["414","Mercedes-Benz","Citaro C2","EZ-151-YG","2018-08-01","Autocars Delcourt","Calvados - Cagny"],
+["415","Mercedes-Benz","Citaro C2","EZ-146-YG","2018-08-01","Autocars Delcourt","Calvados - Cagny"],
+["416","Mercedes-Benz","Citaro C2","EZ-133-YG","2018-08-01","Autocars Delcourt","Calvados - Cagny"],
+["417","Mercedes-Benz","Citaro C2","EZ-142-YG","2018-08-01","Autocars Delcourt","Calvados - Cagny"],
+["418","Mercedes-Benz","Citaro C2","EZ-136-YG","2018-08-01","Autocars Delcourt","Calvados - Cagny"],
+["419","Mercedes-Benz","Citaro C2","EZ-148-YG","2018-08-01","RD Caen la Mer","Hérouville Sphère"],
+["420","Mercedes-Benz","Citaro C2","FJ-712-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["421","Mercedes-Benz","Citaro C2","FJ-719-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["422","Mercedes-Benz","Citaro C2","FJ-710-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["423","Mercedes-Benz","Citaro C2","FJ-716-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["424","Mercedes-Benz","Citaro C2","FJ-718-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["425","Mercedes-Benz","Citaro C2","FJ-708-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["426","Mercedes-Benz","Citaro C2","FJ-705-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["427","Mercedes-Benz","Citaro C2","FJ-714-VQ","2019-08-01","RD Caen la Mer","Hérouville Sphère"],
+["450","Mercedes-Benz","Citaro G C2","ER-572-LV","2017-10-01","RD Caen la Mer","Hérouville Sphère"],
+["451","Mercedes-Benz","Citaro G C2","ER-300-PM","2017-10-01","RD Caen la Mer","Hérouville Sphère"],
+["452","Mercedes-Benz","Citaro G C2","ER-307-PM","2017-10-01","RD Caen la Mer","Hérouville Sphère"],
+["453","Mercedes-Benz","Citaro G C2","ER-676-TQ","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["454","Mercedes-Benz","Citaro G C2","ER-685-TQ","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["455","Mercedes-Benz","Citaro G C2","ER-681-TQ","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["456","Mercedes-Benz","Citaro G C2","ER-720-WN","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["457","Mercedes-Benz","Citaro G C2","ER-716-WN","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["458","Mercedes-Benz","Citaro G C2","ER-270-ZZ","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["459","Mercedes-Benz","Citaro G C2","ER-273-ZZ","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["460","Mercedes-Benz","Citaro G C2","ES-670-DB","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["461","Mercedes-Benz","Citaro G C2","ES-660-DB","2017-11-01","RD Caen la Mer","Hérouville Sphère"],
+["542","Iveco Bus","Crossway LE Line","DV-757-SX","2015-09-01","Keolis Pays Normands","Mondeville"],
+["543","Iveco Bus","Crossway LE Line","DV-866-SX","2015-09-01","Keolis Pays Normands","Mondeville"],
+["544","Iveco Bus","Crossway LE Line","EF-666-HB","2016-09-01","Keolis Pays Normands","Mondeville"],
+["545","Iveco Bus","Crossway LE Line","EF-840-HB","2016-09-01","Keolis Pays Normands","Mondeville"],
+["546","Mercedes-Benz","Citaro LE C2","ES-404-TT","2017-12-01","Keolis Pays Normands","Mondeville"],
+["547","Mercedes-Benz","Citaro LE C2","ES-408-TT","2017-12-01","Keolis Pays Normands","Mondeville"],
+["787","Peugeot","Boxer III TPMR","FV-924-SC","2020-12-01","RD Caen la Mer","Hérouville Sphère"],
+["788","Peugeot","Boxer III TPMR","FV-898-SC","2020-12-01","RD Caen la Mer","Hérouville Sphère"],
+["789","Peugeot","Boxer III TPMR","FV-895-SC","2020-12-01","RD Caen la Mer","Hérouville Sphère"],
+["3201","Bolloré","Bluebus 6 Facelift","GT-492-PK","2024-01-01","RD Caen la Mer","Hérouville Sphère"],
+["3202","Bolloré","Bluebus 6 Facelift","GT-489-PK","2024-01-01","RD Caen la Mer","Hérouville Sphère"],
+["3203","Bolloré","Bluebus 6 Facelift","GT-486-PK","2024-01-01","RD Caen la Mer","Hérouville Sphère"],
+["3204","Bolloré","Bluebus 6 Facelift","GT-476-PK","2024-01-01","RD Caen la Mer","Hérouville Sphère"],
+["5201","Mercedes-Benz","Citaro C2 NGT","GB-804-QJ","2021-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5202","Mercedes-Benz","Citaro C2 NGT","GC-367-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5203","Mercedes-Benz","Citaro C2 NGT","GC-355-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5204","Mercedes-Benz","Citaro C2 NGT","GC-039-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5205","Mercedes-Benz","Citaro C2 NGT","GC-358-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5206","Mercedes-Benz","Citaro C2 NGT","GC-071-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5207","Mercedes-Benz","Citaro C2 NGT","GC-365-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5208","Mercedes-Benz","Citaro C2 NGT","GC-051-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5209","Mercedes-Benz","Citaro C2 NGT","GC-068-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5210","Mercedes-Benz","Citaro C2 NGT","GC-369-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5211","Mercedes-Benz","Citaro C2 NGT","GC-059-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5212","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-360-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5213","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-085-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5214","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-092-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5215","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-349-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5216","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-356-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5217","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-074-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5218","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-372-FG","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5219","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-055-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5220","Mercedes-Benz","Citaro C2 NGT Hybrid","GC-047-PV","2021-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5221","Mercedes-Benz","Citaro C2 NGT Hybrid","GG-124-AD","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5222","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-429-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5223","Mercedes-Benz","Citaro C2 NGT Hybrid","GG-222-AD","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5224","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-562-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5225","Mercedes-Benz","Citaro C2 NGT Hybrid","GG-262-AD","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5226","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-627-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5227","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-760-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5228","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-819-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5229","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-860-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5230","Mercedes-Benz","Citaro C2 NGT Hybrid","GH-970-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5231","Mercedes-Benz","Citaro C2 NGT","GF-207-ZX","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5232","Mercedes-Benz","Citaro C2 NGT","GH-926-CR","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5233","Mercedes-Benz","Citaro C2 NGT","GF-258-ZX","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5234","Mercedes-Benz","Citaro C2 NGT","GG-504-AC","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5235","Mercedes-Benz","Citaro C2 NGT","GH-043-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5236","Mercedes-Benz","Citaro C2 NGT","GH-159-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5237","Mercedes-Benz","Citaro C2 NGT","GH-213-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5238","Mercedes-Benz","Citaro C2 NGT","GG-891-AC","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5239","Mercedes-Benz","Citaro C2 NGT","GH-262-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5240","Mercedes-Benz","Citaro C2 NGT","GH-315-CS","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["5241","Mercedes-Benz","Citaro C2 NGT","GG-030-AD","2022-04-01","RD Caen la Mer","Hérouville Sphère"],
+["5242","Scania","Citywide LF II GNV","GR-124-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5243","Scania","Citywide LF II GNV","GR-208-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5244","Scania","Citywide LF II GNV","GR-327-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5245","Scania","Citywide LF II GNV","GR-382-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5246","Scania","Citywide LF II GNV","GR-465-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5247","Scania","Citywide LF II GNV","GR-645-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5248","Scania","Citywide LF II GNV","GR-738-PZ","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5249","Scania","Citywide LF II GNV","GR-569-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5250","Scania","Citywide LF II GNV","GR-625-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5251","Scania","Citywide LF II GNV","GR-676-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5252","Scania","Citywide LF II GNV","GR-714-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5253","Scania","Citywide LF II GNV","GR-758-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["5254","Scania","Citywide LF II GNV","GW-286-YL","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5256","Scania","Citywide LF II GNV","GW-355-YL","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5257","Scania","Citywide LF II GNV","GW-395-YL","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5258","Scania","Citywide LF II GNV","GW-429-YL","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5259","Scania","Citywide LF II GNV","GW-467-YL","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5260","Scania","Citywide LF II GNV","GW-420-ZE","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["5261","Scania","Citywide LF II GNV","GW-469-ZE","2024-09-01","RD Caen la Mer","Hérouville Sphère"],
+["6201","Scania","Citywide LFA II GNV","GR-808-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["6202","Scania","Citywide LFA II GNV","GR-872-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["6203","Scania","Citywide LFA II GNV","GR-925-QA","2023-10-01","RD Caen la Mer","Hérouville Sphère"],
+["7201","Mercedes-Benz","Citaro C2 NGT","GC-362-FG","2021-10-01","Autocars Delcourt","Calvados - Cagny"],
+["7202","Mercedes-Benz","Citaro C2 NGT","GD-779-KL","2021-12-01","Autocars Delcourt","Calvados - Cagny"],
+["7203","Mercedes-Benz","Citaro C2 NGT","GC-079-PV","2021-10-01","Keolis Pays Normands","Mondeville"],
+["7204","Mercedes-Benz","Citaro C2 NGT","GC-352-FG","2021-10-01","Keolis Pays Normands","Mondeville"],
+["7205","Mercedes-Benz","Citaro C2 NGT","GC-045-PV","2021-10-01","Keolis Pays Normands","Mondeville"],
+["7206","Mercedes-Benz","Citaro C2 NGT","GF-517-ZW","2022-04-01","Keolis Pays Normands","Mondeville"],
+["7207","Mercedes-Benz","Citaro C2 NGT","GF-584-ZW","2022-04-01","Keolis Pays Normands","Mondeville"],
+["7208","Mercedes-Benz","Citaro C2 NGT","GF-629-ZW","2022-04-01","Keolis Pays Normands","Mondeville"],
+["7209","Mercedes-Benz","Citaro C2 NGT","GF-685-ZW","2022-04-01","Keolis Pays Normands","Mondeville"],
+["8206","Setra","S 415 ÜL Business","DJ-654-JL","2014-08-01","Autocars Delcourt","Calvados - Cagny"],
+["8207","Setra","S 415 ÜL Business","DJ-652-JL","2014-08-01","Autocars Delcourt","Calvados - Cagny"],
+["8215","Mercedes-Benz","Intouro II M","FM-706-EB","2019-12-01","Autocars Delcourt","Calvados - Cagny"],
+["8246","Temsa","LD 13 SB Plus","GV-768-RB","2024-03-01","Autocars Delcourt","Calvados - Cagny"],
+["8266","Mercedes-Benz","Intouro II ME","AN-136-XD","2010-03-01","Autocars Delcourt","Calvados - Cagny"],
+["9903","Toyota","Proace","GG-974-TT","2022-06-01","RD Caen la Mer","Hérouville Sphère"],
+["9904","Toyota","Proace","GG-866-SR","2022-06-01","RD Caen la Mer","Hérouville Sphère"]
+].map(r => ({numero:r[0],constructeur:r[1],modele:r[2],immat:r[3],mec:r[4],exploitant:r[5],depot:r[6],type:'bus'}));
+
+const TRAM_NUMS = []; for(let i=1001;i<=1036;i++) TRAM_NUMS.push(i);
+const TRAM = TRAM_NUMS.map(n=>{
+  let mec;
+  if(n<=1006) mec="2018-06-01"; else if(n<=1026) mec="2019-03-01";
+  else if(n<=1029) mec="2024-01-01"; else if(n<=1032) mec="2024-01-01"; else mec="2024-06-01";
+  return {numero:String(n),constructeur:"Alstom",modele:"Citadis 305",immat:"—",mec,exploitant:"RD Caen la Mer",depot:"Fleury-sur-Orne",type:'tram'};
+});
+const DATA = BUS.concat(TRAM);
+
+function energie(modele){ if(/NGT|GNV/i.test(modele)) return 'gaz'; if(/Bluebus|Citadis/i.test(modele)) return 'elec'; return 'diesel'; }
+function gabarit(modele,type){
+  if(type==='tram') return 'Tramway';
+  if(/Citaro G C2|Crealis 18|GX 427(?! HYB)|Citelis 18|Citywide LFA/i.test(modele)) return 'Articulé (18 m)';
+  if(/Bluebus 6|City 23|Boxer III TPMR|Proace/i.test(modele)) return 'Midibus / Minibus / TPMR';
+  if(/S 415|Intouro|LD 13/i.test(modele)) return 'Autocar interurbain';
+  return 'Standard (12 m)';
+}
+DATA.forEach(v=>{ v.energie=energie(v.modele); v.gabarit=gabarit(v.modele,v.type); });
+
+function ageStr(mec){
+  const d = new Date(mec); const now = new Date('2026-08-30');
+  let months = (now.getFullYear()-d.getFullYear())*12 + (now.getMonth()-d.getMonth());
+  const years = Math.floor(months/12); const rem = months%12;
+  if(years<=0) return rem+" mois";
+  return years+" an"+(years>1?'s':'')+(rem>0?" et "+rem+" mois":"");
+}
+
+const depotSel = document.getElementById('f-depot');
+[...new Set(DATA.map(v=>v.depot))].sort().forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; depotSel.appendChild(o); });
+
+document.getElementById('stats').innerHTML = `
+  <div class="stat"><b>${DATA.length}</b><span>Véhicules référencés</span></div>
+  <div class="stat"><b>${new Set(DATA.map(v=>v.modele)).size}</b><span>Modèles différents</span></div>
+  <div class="stat"><b>${DATA.filter(v=>v.energie==='gaz').length}</b><span>Gaz / BioGNV</span></div>
+  <div class="stat"><b>${DATA.filter(v=>v.energie==='elec').length}</b><span>Électrique</span></div>
+  <div class="stat"><b>2006</b><span>Doyen du parc (GX 327)</span></div>
+`;
+
+const GABARIT_ORDER = ["Tramway","Articulé (18 m)","Standard (12 m)","Autocar interurbain","Midibus / Minibus / TPMR"];
+const search = document.getElementById('search');
+const fEnergie = document.getElementById('f-energie');
+const countEl = document.getElementById('count');
+const contentEl = document.getElementById('content');
+const energyLabel = {diesel:'Diesel', gaz:'Gaz/BioGNV', elec:'Électrique'};
+
+let currentView = 'groupe'; // 'groupe' | 'numero'
+let sortKey = 'numero', sortDir = 1;
+
+document.getElementById('view-groupe').addEventListener('click', ()=>{
+  currentView='groupe';
+  document.getElementById('view-groupe').classList.add('active');
+  document.getElementById('view-numero').classList.remove('active');
+  render();
+});
+document.getElementById('view-numero').addEventListener('click', ()=>{
+  currentView='numero';
+  document.getElementById('view-numero').classList.add('active');
+  document.getElementById('view-groupe').classList.remove('active');
+  render();
+});
+
+function sortBy(key){
+  if(sortKey===key) sortDir*=-1; else { sortKey=key; sortDir=1; }
+  render();
+}
+
+function renderFlatList(filtered){
+  const sorted = [...filtered].sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(sortKey==='numero') return sortDir*av.localeCompare(bv,undefined,{numeric:true});
+    if(sortKey==='mec') return sortDir*(new Date(av)-new Date(bv));
+    return sortDir*String(av).localeCompare(String(bv));
+  });
+  const arrow = k => sortKey===k ? `<span class="sort-arrow">${sortDir>0?'▲':'▼'}</span>` : '';
+  return `<table class="flatlist">
+    <tr>
+      <th onclick="sortBy('numero')">N° parc${arrow('numero')}</th>
+      <th onclick="sortBy('constructeur')">Constructeur${arrow('constructeur')}</th>
+      <th onclick="sortBy('modele')">Modèle${arrow('modele')}</th>
+      <th onclick="sortBy('immat')">Immat.${arrow('immat')}</th>
+      <th onclick="sortBy('mec')">Mise en circ.${arrow('mec')}</th>
+      <th>Âge</th>
+      <th onclick="sortBy('energie')">Énergie${arrow('energie')}</th>
+      <th onclick="sortBy('depot')">Dépôt${arrow('depot')}</th>
+      <th onclick="sortBy('exploitant')">Exploitant${arrow('exploitant')}</th>
+    </tr>
+    ${sorted.map(v=>`
+      <tr>
+        <td class="num">${v.numero}</td>
+        <td>${v.constructeur}</td>
+        <td>${v.modele}</td>
+        <td class="plate">${v.immat}</td>
+        <td>${new Date(v.mec).toLocaleDateString('fr-FR',{month:'short',year:'numeric'})}</td>
+        <td>${ageStr(v.mec)}</td>
+        <td><span class="mini-tag ${v.energie}">${energyLabel[v.energie]}</span></td>
+        <td>${v.depot}</td>
+        <td>${v.exploitant}</td>
+      </tr>
+    `).join('')}
+  </table>`;
+}
+
+function render(){
+  const q = search.value.trim().toLowerCase();
+  const en = fEnergie.value, depot = depotSel.value;
+  const filtered = DATA.filter(v=>{
+    if(en && v.energie!==en) return false;
+    if(depot && v.depot!==depot) return false;
+    if(q && !(v.numero.toLowerCase().includes(q) || v.immat.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  countEl.textContent = filtered.length + ' véhicule' + (filtered.length>1?'s':'') + ' affiché' + (filtered.length>1?'s':'');
+
+  if(!filtered.length){ contentEl.innerHTML = '<div class="empty">Aucun véhicule ne correspond à ces critères.</div>'; return; }
+
+  if(currentView==='numero'){ contentEl.innerHTML = renderFlatList(filtered); return; }
+
+  let html = '';
+  GABARIT_ORDER.forEach(gab=>{
+    const gabVehicles = filtered.filter(v=>v.gabarit===gab);
+    if(!gabVehicles.length) return;
+    const gid = gab.replace(/[^a-zA-Z0-9]/g,'');
+    html += `<div class="gabarit-section">
+      <div class="gabarit-head" onclick="toggleGabarit('${gid}')">
+        <h2>${gab}</h2><span class="count-badge">${gabVehicles.length}</span><span class="chevron">▾</span>
+      </div>
+      <div class="gabarit-body" id="gab-${gid}">`;
+
+    const models = {};
+    gabVehicles.forEach(v=>{ const key=v.constructeur+'|'+v.modele; (models[key]=models[key]||[]).push(v); });
+
+    Object.entries(models).forEach(([key,vs])=>{
+      const [constructeur,modele] = key.split('|');
+      const mid = key.replace(/[^a-zA-Z0-9]/g,'');
+      html += `<div class="model-card">
+        <div class="model-head" onclick="toggleModel('${mid}')">
+          <div><div class="modele-name">${constructeur} ${modele}</div><div class="constructeur">${vs[0].gabarit}</div></div>
+          <span class="energy-tag ${vs[0].energie}">${energyLabel[vs[0].energie]}</span>
+          <span class="ratio">${vs.length} en service</span>
+          <span class="chev">▸</span>
+        </div>
+        <table class="vlist" id="model-${mid}">
+          <tr><th>N° parc</th><th>Immat.</th><th>Mise en circ.</th><th>Âge</th><th>Dépôt</th><th>Exploitant</th></tr>
+          ${vs.sort((a,b)=>a.numero.localeCompare(b.numero,undefined,{numeric:true})).map(v=>`
+            <tr>
+              <td class="num">${v.numero}</td>
+              <td class="plate">${v.immat}</td>
+              <td>${new Date(v.mec).toLocaleDateString('fr-FR',{month:'short',year:'numeric'})}</td>
+              <td>${ageStr(v.mec)}</td>
+              <td>${v.depot}</td>
+              <td>${v.exploitant}</td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  contentEl.innerHTML = html;
+}
+
+function toggleGabarit(id){
+  const body = document.getElementById('gab-'+id);
+  const head = body.previousElementSibling;
+  body.classList.toggle('collapsed'); head.classList.toggle('collapsed');
+}
+function toggleModel(id){
+  const table = document.getElementById('model-'+id);
+  const head = table.previousElementSibling;
+  table.classList.toggle('open'); head.classList.toggle('open');
+}
+
+[search,fEnergie,depotSel].forEach(el=>el.addEventListener('input',render));
+render();
+</script>
+</body>
+</html>

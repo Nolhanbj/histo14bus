@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Histo14Bus — Le Parc & Réseau Twisto (Caen la mer) et Normandie</title>
+  
+  <!-- Meta SEO & Social -->
+  <meta name="description" content="Histo14Bus : Base de données complète, fiches techniques et photographiques des bus et tramways Twisto (Caen la mer), Astuce (Rouen), LiA (Le Havre) et Nomad Normandie." />
+  <meta name="keywords" content="Twisto, Caen la mer, Bus Caen, Tramway Caen, Histo14Bus, Parc de bus, Astuce Rouen, LiA Le Havre, Nomad Car, Iveco Urbanway GNV, Citadis 302, Keolis Caen" />
+  <meta name="author" content="Nolhanbj" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="theme-color" content="#00875A" />
+
+  <!-- Open Graph / Facebook / WhatsApp -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Histo14Bus" />
+  <meta property="og:title" content="Histo14Bus — Parc & Réseau Twisto Caen la mer et Normandie" />
+  <meta property="og:description" content="Explorez l'état de parc complet, l'historique et les photos des bus et tramways Twisto, Astuce, LiA et Nomad." />
+  <meta property="og:image" content="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=80" />
+  <meta property="og:locale" content="fr_FR" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Histo14Bus — Parc & Réseau Twisto Caen la mer" />
+  <meta name="twitter:description" content="Base de données interactive et photothèque des bus et tramways de Normandie." />
+  <meta name="twitter:image" content="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=80" />
+
+  <!-- Schema.org JSON-LD Structured Data for Google -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Histo14Bus",
+    "alternateName": ["Histo 14 Bus", "Twisto Histo", "Bus Info Normandie"],
+    "description": "Base de données photographique et technique des transports en commun de Normandie (Twisto, Astuce, LiA, Nomad).",
+    "url": "https://histo14bus.vercel.app/",
+    "inLanguage": "fr-FR",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Histo14Bus",
+      "founder": "Nolhanbj"
+    }
+  }
+  </script>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            twisto: {
+              50: '#F0FDF4',
+              100: '#DCFCE7',
+              200: '#BBF7D0',
+              300: '#86EFAC',
+              400: '#4ADE80',
+              500: '#22C55E',
+              600: '#00875A', // Twisto primary green
+              700: '#005F3F',
+              800: '#064E3B',
+              900: '#022C22',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-800 dark:text-slate-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- TOP NAVIGATION BAR (STICKY & GLASSMORPHISM)                               -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-40 glass-nav transition-colors duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 sm:h-20">
+        
+        <!-- Brand / Logo -->
+        <a href="#fleet" onclick="switchTab('fleet')" class="flex items-center gap-3 group">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-emerald-700 to-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-700/25 group-hover:scale-105 transition-transform">
+            <i data-lucide="bus-front" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-black text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white">Histo14Bus</span>
+              <span class="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-500/20">v2.0</span>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium tracking-wide hidden sm:block">Parc & Réseau Twisto • Caen la mer</p>
+          </div>
+        </a>
+
+        <!-- Desktop Navigation Tabs -->
+        <nav class="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+          <button onclick="switchTab('fleet')" data-tab="fleet" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+            <i data-lucide="layout-grid" class="w-4 h-4"></i> Parc Véhicules
+          </button>
+          <button onclick="switchTab('lines')" data-tab="lines" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i data-lucide="git-branch" class="w-4 h-4"></i> Lignes & Tram
+          </button>
+          <button onclick="switchTab('movements')" data-tab="movements" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i data-lucide="repeat" class="w-4 h-4"></i> Mouvements
+          </button>
+          <button onclick="switchTab('news')" data-tab="news" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i data-lucide="newspaper" class="w-4 h-4"></i> Le MAG
+          </button>
+          <button onclick="switchTab('gallery')" data-tab="gallery" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i data-lucide="camera" class="w-4 h-4"></i> Galerie
+          </button>
+          <button onclick="switchTab('about')" data-tab="about" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i data-lucide="info" class="w-4 h-4"></i> L'Équipe
+          </button>
+        </nav>
+
+        <!-- Right Header Actions (Search, Admin, Dark Mode) -->
+        <div class="flex items-center gap-2">
+          
+          <!-- Universal Search Input with trigger -->
+          <div class="relative">
+            <div class="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 shadow-inner w-36 sm:w-56 focus-within:w-64 focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
+              <i data-lucide="search" class="w-4 h-4 mr-2 flex-shrink-0 text-slate-400"></i>
+              <input type="text" id="global-search-input" placeholder="Rechercher..." class="bg-transparent border-none outline-none w-full text-slate-800 dark:text-slate-100 placeholder-slate-400" />
+              <kbd class="hidden sm:inline-block bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500 dark:text-slate-300 ml-1">⌘K</kbd>
+            </div>
+            
+            <!-- Universal Search Autocomplete Dropdown -->
+            <div id="global-search-results" class="hidden absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden"></div>
+          </div>
+
+          <!-- Admin Authentication / Dashboard Trigger Button -->
+          <button id="admin-auth-btn" onclick="openAdminModal()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 shadow-sm" title="Espace réservé aux administrateurs">
+            <i data-lucide="lock" class="w-4 h-4 text-emerald-600"></i>
+            <span class="hidden sm:inline">Espace Admin</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button onclick="toggleTheme()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center transition border border-slate-200 dark:border-slate-700" title="Basculer le mode sombre/clair">
+            <i data-lucide="moon" id="theme-toggle-icon" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <div class="md:hidden flex items-center justify-around bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-slate-800 px-2 py-2 text-[10px]">
+      <button onclick="switchTab('fleet')" data-tab="fleet" class="nav-link flex flex-col items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-bold">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i> Parc
+      </button>
+      <button onclick="switchTab('lines')" data-tab="lines" class="nav-link flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400">
+        <i data-lucide="git-branch" class="w-4 h-4"></i> Lignes
+      </button>
+      <button onclick="switchTab('movements')" data-tab="movements" class="nav-link flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400">
+        <i data-lucide="repeat" class="w-4 h-4"></i> Mouvements
+      </button>
+      <button onclick="switchTab('news')" data-tab="news" class="nav-link flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400">
+        <i data-lucide="newspaper" class="w-4 h-4"></i> Le MAG
+      </button>
+      <button onclick="switchTab('gallery')" data-tab="gallery" class="nav-link flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400">
+        <i data-lucide="camera" class="w-4 h-4"></i> Galerie
+      </button>
+      <button onclick="switchTab('about')" data-tab="about" class="nav-link flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400">
+        <i data-lucide="info" class="w-4 h-4"></i> Équipe
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- HERO BANNER & REAL-TIME FLEET METRICS                                     -->
+  <!-- ========================================================================= -->
+  <section class="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 text-white py-10 sm:py-14 border-b border-slate-800">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent"></div>
+    <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="max-w-3xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold mb-4 backdrop-blur-md">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-live"></span>
+          Données Réseau Normandie & Twisto à jour 2026
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+          L'Observatoire des Réseaux <span class="text-emerald-400">Normands</span>
+        </h1>
+        <p class="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
+          Base photographique et technique complète des bus, tramways et matériels roulants de <strong>Twisto (Caen la mer)</strong>, <strong>Astuce (Rouen)</strong>, <strong>LiA (Le Havre)</strong> et <strong>Nomad Car</strong>.
+        </p>
+      </div>
+
+      <!-- Live Network Statistics Counter Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mt-8 pt-8 border-t border-slate-800/80">
+        
+        <div class="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-1">
+            <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i> Total Référencé
+          </div>
+          <div id="stat-total" class="text-2xl sm:text-3xl font-black text-white">0</div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-emerald-400 text-xs font-semibold mb-1">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i> En Service (Actuel)
+          </div>
+          <div id="stat-active" class="text-2xl sm:text-3xl font-black text-emerald-400">0</div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-red-400 text-xs font-semibold mb-1">
+            <i data-lucide="archive" class="w-4 h-4"></i> Parc Réformé
+          </div>
+          <div id="stat-reformed" class="text-2xl sm:text-3xl font-black text-red-400">0</div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-sky-400 text-xs font-semibold mb-1">
+            <i data-lucide="tram-front" class="w-4 h-4"></i> Rames Tramway
+          </div>
+          <div id="stat-tram" class="text-2xl sm:text-3xl font-black text-sky-400">0</div>
+        </div>
+
+        <div class="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-teal-400 text-xs font-semibold mb-1">
+            <i data-lucide="leaf" class="w-4 h-4"></i> Flotte Propre / BioGNV
+          </div>
+          <div id="stat-green" class="text-2xl sm:text-3xl font-black text-teal-400">0%</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN CONTENT CONTAINER                                                    -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ======================================================================= -->
+    <!-- TAB 1: FLEET DIRECTORY & FILTER ENGINE (PARC VÉHICULES)                 -->
+    <!-- ======================================================================= -->
+    <div id="tab-fleet" class="tab-content space-y-6">
+      
+      <!-- ===================================================================== -->
+      <!-- PROMINENT INTERACTIVE NETWORK SELECTOR (CHOIX DU RÉSEAU)              -->
+      <!-- ===================================================================== -->
+      <div>
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h3 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="map" class="w-5 h-5 text-emerald-600"></i>
+            Sélectionnez votre Réseau :
+          </h3>
+          <span class="text-xs font-semibold text-slate-400">Cliquez pour filtrer la flotte</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3" id="network-cards-container">
+          
+          <!-- Card: All Networks -->
+          <button type="button" onclick="selectNetworkFilter('all', this)" class="network-card active p-4 rounded-2xl bg-white dark:bg-slate-800/90 border-2 border-emerald-600 shadow-md text-left transition hover:scale-[1.02] flex flex-col justify-between group">
+            <div class="flex items-center justify-between w-full mb-2">
+              <span class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-xs">
+                🌐
+              </span>
+              <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300" id="count-net-all">0</span>
+            </div>
+            <div>
+              <div class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600">Tous Réseaux</div>
+              <div class="text-[10px] text-slate-400">Normandie Globale</div>
+            </div>
+          </button>
+
+          <!-- Card: Twisto (Caen) -->
+          <button type="button" onclick="selectNetworkFilter('Twisto', this)" class="network-card p-4 rounded-2xl bg-white dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 shadow-sm text-left transition hover:scale-[1.02] hover:border-emerald-500 flex flex-col justify-between group">
+            <div class="flex items-center justify-between w-full mb-2">
+              <span class="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 font-bold text-xs flex items-center justify-center">
+                🚍
+              </span>
+              <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-600" id="count-net-twisto">0</span>
+            </div>
+            <div>
+              <div class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600">Twisto</div>
+              <div class="text-[10px] text-slate-400">Caen la mer (14)</div>
+            </div>
+          </button>
+
+          <!-- Card: Astuce (Rouen) -->
+          <button type="button" onclick="selectNetworkFilter('Astuce (Rouen)', this)" class="network-card p-4 rounded-2xl bg-white dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 shadow-sm text-left transition hover:scale-[1.02] hover:border-blue-500 flex flex-col justify-between group">
+            <div class="flex items-center justify-between w-full mb-2">
+              <span class="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 font-bold text-xs flex items-center justify-center">
+                🔵
+              </span>
+              <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600" id="count-net-astuce">0</span>
+            </div>
+            <div>
+              <div class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-blue-500">Astuce</div>
+              <div class="text-[10px] text-slate-400">Rouen Normandie (76)</div>
+            </div>
+          </button>
+
+          <!-- Card: LiA (Le Havre) -->
+          <button type="button" onclick="selectNetworkFilter('LiA (Le Havre)', this)" class="network-card p-4 rounded-2xl bg-white dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 shadow-sm text-left transition hover:scale-[1.02] hover:border-sky-500 flex flex-col justify-between group">
+            <div class="flex items-center justify-between w-full mb-2">
+              <span class="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 font-bold text-xs flex items-center justify-center">
+                🌊
+              </span>
+              <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950 text-sky-600" id="count-net-lia">0</span>
+            </div>
+            <div>
+              <div class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-sky-500">LiA</div>
+              <div class="text-[10px] text-slate-400">Le Havre Métropole (76)</div>
+            </div>
+          </button>
+
+          <!-- Card: Nomad Car -->
+          <button type="button" onclick="selectNetworkFilter('Nomad Car (Normandie)', this)" class="network-card p-4 rounded-2xl bg-white dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 shadow-sm text-left transition hover:scale-[1.02] hover:border-amber-500 flex flex-col justify-between group col-span-2 sm:col-span-1">
+            <div class="flex items-center justify-between w-full mb-2">
+              <span class="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 font-bold text-xs flex items-center justify-center">
+                🚌
+              </span>
+              <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-600" id="count-net-nomad">0</span>
+            </div>
+            <div>
+              <div class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-amber-500">Nomad Car</div>
+              <div class="text-[10px] text-slate-400">Région Normandie</div>
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Filter Bar Controls -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        
+        <!-- Search & Series Row -->
+        <div class="flex flex-col sm:flex-row items-center gap-3">
+          <!-- Text Search -->
+          <div class="relative flex-1 w-full">
+            <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="fleet-search" oninput="activeFilters.search = this.value; renderFleet();" placeholder="Rechercher par numéro (ex: 5220, 1004), modèle, immat, ligne..." class="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none transition" />
+          </div>
+
+          <!-- Series Dropdown -->
+          <div class="w-full sm:w-64">
+            <select id="filter-series" onchange="activeFilters.series = this.value; renderFleet();" class="w-full py-3 px-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500">
+              <option value="all">Toutes les séries</option>
+            </select>
+          </div>
+
+          <!-- View Mode (Grid vs Table) -->
+          <div class="hidden sm:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <button onclick="viewMode = 'grid'; renderFleet();" class="p-2 rounded-xl transition ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}" title="Vue Grille">
+              <i data-lucide="grid" class="w-4 h-4"></i>
+            </button>
+            <button onclick="viewMode = 'table'; renderFleet();" class="p-2 rounded-xl transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}" title="Vue Tableau">
+              <i data-lucide="list" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Faceted Pills Filters -->
+        <div class="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+          
+          <!-- Network Filter Row -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-bold text-slate-400 mr-2 min-w-[70px]">Réseau :</span>
+            <button onclick="selectNetworkFilter('all', this)" class="filter-btn net-btn active px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="all">Tous Réseaux</button>
+            <button onclick="selectNetworkFilter('Twisto', this)" class="filter-btn net-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition flex items-center gap-1" data-value="Twisto">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Twisto (Caen)
+            </button>
+            <button onclick="selectNetworkFilter('Astuce (Rouen)', this)" class="filter-btn net-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition flex items-center gap-1" data-value="Astuce (Rouen)">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span> Astuce (Rouen)
+            </button>
+            <button onclick="selectNetworkFilter('LiA (Le Havre)', this)" class="filter-btn net-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition flex items-center gap-1" data-value="LiA (Le Havre)">
+              <span class="w-2 h-2 rounded-full bg-sky-500"></span> LiA (Le Havre)
+            </button>
+            <button onclick="selectNetworkFilter('Nomad Car (Normandie)', this)" class="filter-btn net-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition flex items-center gap-1" data-value="Nomad Car (Normandie)">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span> Nomad Car
+            </button>
+          </div>
+
+          <!-- Status Filter -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-bold text-slate-400 mr-2 min-w-[70px]">Statut :</span>
+            <button onclick="activeFilters.status = 'all'; document.querySelectorAll('.status-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn status-btn active px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="all">Tous</button>
+            <button onclick="activeFilters.status = 'Actuel'; document.querySelectorAll('.status-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn status-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition flex items-center gap-1" data-value="Actuel">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Parc Actuel
+            </button>
+            <button onclick="activeFilters.status = 'Réformé'; document.querySelectorAll('.status-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn status-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition flex items-center gap-1" data-value="Réformé">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span> Parc Réformé
+            </button>
+          </div>
+
+          <!-- Type Filter -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-bold text-slate-400 mr-2 min-w-[70px]">Matériel :</span>
+            <button onclick="activeFilters.type = 'all'; document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn type-btn active px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="all">Tous</button>
+            <button onclick="activeFilters.type = 'Bus Standard'; document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn type-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Bus Standard">Bus Standard (12m)</button>
+            <button onclick="activeFilters.type = 'Bus Articulé'; document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn type-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Bus Articulé">Bus Articulé (18m)</button>
+            <button onclick="activeFilters.type = 'Tramway'; document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn type-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Tramway">Tramway Citadis</button>
+            <button onclick="activeFilters.type = 'Minibus'; document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn type-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Minibus">Minibus / Navettes</button>
+          </div>
+
+          <!-- Energy Filter -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-bold text-slate-400 mr-2 min-w-[70px]">Énergie :</span>
+            <button onclick="activeFilters.energy = 'all'; document.querySelectorAll('.energy-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn energy-btn active px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="all">Toutes</button>
+            <button onclick="activeFilters.energy = 'GNV'; document.querySelectorAll('.energy-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn energy-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="GNV">🌿 BioGNV / Gaz</button>
+            <button onclick="activeFilters.energy = 'Électrique'; document.querySelectorAll('.energy-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn energy-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Électrique">⚡ Électrique</button>
+            <button onclick="activeFilters.energy = 'Hybride'; document.querySelectorAll('.energy-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn energy-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Hybride">🔋 Hybride</button>
+            <button onclick="activeFilters.energy = 'Diesel'; document.querySelectorAll('.energy-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn energy-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Diesel">⛽ Diesel</button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Results Count & Active Filters Indicator -->
+      <div class="flex items-center justify-between px-2 text-sm text-slate-500 dark:text-slate-400">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-slate-800 dark:text-white" id="fleet-results-count">Chargement...</span>
+        </div>
+        <button onclick="resetFleetFilters()" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Réinitialiser les filtres
+        </button>
+      </div>
+
+      <!-- Fleet Grid / Table Container -->
+      <div id="fleet-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamically injected by fleet.js -->
+      </div>
+
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 2: NETWORK LINES EXPLORER (LIGNES & TRAM)                           -->
+    <!-- ======================================================================= -->
+    <div id="tab-lines" class="tab-content hidden space-y-6">
+      
+      <!-- Lines Header & Category Pills -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white">Lignes du Réseau Twisto</h2>
+            <span class="px-2.5 py-0.5 text-[11px] font-extrabold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-500/20">Édition 2025/2026</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Plans officiels, tracés thermomètres, arrêts et fiches des lignes Tramway, Lianes, Urbaines, Express, Navettes et Twistoflex (twisto.fr).
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs">
+            <button onclick="filterLinesByCategory('all', this)" class="line-category-btn active px-3 py-1.5 rounded-xl font-bold transition">Toutes</button>
+            <button onclick="filterLinesByCategory('Tramway', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🚊 Tram T1-T3</button>
+            <button onclick="filterLinesByCategory('Liane', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🚍 Lianes 1-4</button>
+            <button onclick="filterLinesByCategory('Urbaine', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🚌 Urbaines & Express</button>
+            <button onclick="filterLinesByCategory('Périurbaine', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🌾 Périurbaines (30-37)</button>
+            <button onclick="filterLinesByCategory('Scolaire', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🎓 Scolaires (100-138)</button>
+            <button onclick="filterLinesByCategory('Flex', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🚐 Navettes & Flex</button>
+          </div>
+
+          <button onclick="if(typeof resetLinesToOfficialTwisto==='function') resetLinesToOfficialTwisto();" class="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/80 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm" title="Recharger les lignes et plans officiels depuis twisto.fr">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync Twisto.fr
+          </button>
+        </div>
+      </div>
+
+      <!-- Lines Grid Container -->
+      <div id="lines-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamically injected by lines.js -->
+      </div>
+
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 3: MOVEMENTS & NETWORK TRANSFERS (MOUVEMENTS)                       -->
+    <!-- ======================================================================= -->
+    <div id="tab-movements" class="tab-content hidden space-y-6">
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <h2 class="text-2xl font-black text-slate-900 dark:text-white">Mouvements & Mutations de Parc</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Suivi chronologique des arrivées de matériel neuf, des réformes et des transferts entre réseaux normands (Twisto, Astuce Rouen, LiA Le Havre).
+        </p>
+      </div>
+
+      <div id="movements-container" class="space-y-4">
+        <!-- Dynamically injected by app.js -->
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 4: LE MAG & ACTUALITÉS DU RÉSEAU                                    -->
+    <!-- ======================================================================= -->
+    <div id="tab-news" class="tab-content hidden space-y-6">
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white">Le MAG & Actualités Twisto</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Dossiers spéciaux, projets d'extension (Tramway 2029), bilans écologiques et évolutions d'itinéraires.
+          </p>
+        </div>
+        <button onclick="openAdminModalNews()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20 self-start sm:self-auto">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Nouvel Article
+        </button>
+      </div>
+
+      <div id="news-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamically injected by app.js -->
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 5: GALERIE PHOTOS DES SPOTEURS                                      -->
+    <!-- ======================================================================= -->
+    <div id="tab-gallery" class="tab-content hidden space-y-6">
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white">Galerie Photographique & Spotteurs</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Clichés haute résolution des bus et tramways sur le réseau, capturés par la communauté d'amateurs passionnés.
+          </p>
+        </div>
+        <button onclick="openAdminModalPhoto()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20 self-start sm:self-auto">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter une Photo
+        </button>
+      </div>
+
+      <div id="gallery-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamically rendered by app.js from stored gallery data -->
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 6: L'ÉQUIPE & À PROPOS (TEAM & ABOUT)                              -->
+    <!-- ======================================================================= -->
+    <div id="tab-about" class="tab-content hidden space-y-6">
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm max-w-5xl mx-auto space-y-8">
+        
+        <div>
+          <span class="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold text-xs rounded-full uppercase">Présentation</span>
+          <h2 class="text-3xl font-black text-slate-900 dark:text-white mt-2">À Propos d'Histo14Bus</h2>
+          <p class="text-sm text-slate-600 dark:text-slate-300 mt-3 leading-relaxed">
+            <strong>Histo14Bus</strong> est un projet indépendant et passionné d'archive, de référencement et d'actualités dédié aux transports urbains du Calvados (14) et de Normandie, avec une priorité accordée au réseau <strong>Twisto</strong> de la communauté urbaine <strong>Caen la mer</strong>, ainsi qu'aux réseaux <strong>Astuce Rouen</strong>, <strong>LiA Le Havre</strong> et <strong>Nomad Car</strong>.
+          </p>
+        </div>
+
+        <!-- Team Grid Dynamically Injected -->
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">L'Équipe Histo14Bus</h3>
+            <span class="text-xs text-slate-400 font-semibold" id="team-members-count">Membres actifs</span>
+          </div>
+          <div id="team-container" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Dynamically populated from users accounts in admin.js / app.js -->
+          </div>
+        </div>
+
+        <!-- Mentions & Disclaimer -->
+        <div class="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs text-slate-500 dark:text-slate-400 space-y-1">
+          <p class="font-bold text-slate-700 dark:text-slate-200">Mentions Légales & Avertissement :</p>
+          <p>
+            Ce site est un portail amateur et bénévole réalisé par des passionnés de transports en commun. Il n'est pas affilié officiellement à Keolis Caen la mer, ni à la Communauté urbaine Caen la mer, ni à la marque commerciale Twisto. Toutes les informations et données sont fournies à titre informatif et indicatif.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: VEHICLE DETAIL & PERMALINK (FICHE VÉHICULE DÉTAILLÉE)              -->
+  <!-- ========================================================================= -->
+  <div id="vehicle-modal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-backdrop flex items-center justify-center p-4 sm:p-6" onclick="if (event.target === this) closeVehicleModal();">
+    <div id="vehicle-modal-content" class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 modal-enter-active">
+      <!-- Injected by fleet.js -->
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: LINE DETAIL (FICHE LIGNE DÉTAILLÉE)                                -->
+  <!-- ========================================================================= -->
+  <div id="line-modal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-backdrop flex items-center justify-center p-4 sm:p-6" onclick="if (event.target === this) closeLineModal();">
+    <div id="line-modal-content" class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 modal-enter-active">
+      <!-- Injected by lines.js -->
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: ADMIN & DATA MANAGER (AJOUT VÉHICULE, LIGNE, PHOTO ET EXPORTS)     -->
+  <!-- ========================================================================= -->
+  <div id="admin-modal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-backdrop flex items-center justify-center p-2 sm:p-4 md:p-6" onclick="if (event.target === this) closeAdminModal();">
+    <div class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-6 md:p-8 modal-enter-active my-4 max-h-[94vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center font-bold">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="admin-modal-title" class="text-lg sm:text-xl font-black text-slate-900 dark:text-white">Espace Administrateur Histo14Bus</h3>
+            <p class="text-[11px] text-slate-400 hidden sm:block">Éditeur universel de flotte, lignes, plans, photos, membres & données</p>
+          </div>
+        </div>
+        <button onclick="closeAdminModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center justify-center transition" title="Fermer l'administration">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div id="admin-form-container" class="flex-1 overflow-y-auto pr-1">
+        <!-- Injected by admin.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: PHOTO LIGHTBOX                                                     -->
+  <!-- ========================================================================= -->
+  <div id="lightbox-modal" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4" onclick="closeLightbox()">
+    <button onclick="closeLightbox()" class="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition z-50">
+      <i data-lucide="x" class="w-6 h-6"></i>
+    </button>
+    <img id="lightbox-image" src="" alt="Photo agrandie" class="max-h-[85vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl" onclick="event.stopPropagation()" />
+    <p id="lightbox-caption" class="text-white/80 text-sm mt-4 font-semibold text-center"></p>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- FOOTER                                                                    -->
+  <!-- ========================================================================= -->
+  <footer class="bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800/80 py-10 mt-16 text-slate-500 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+      
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+          H14
+        </div>
+        <div>
+          <p class="font-bold text-slate-800 dark:text-slate-200">Histo14Bus — Version 2.0 (2026)</p>
+          <p class="text-[11px] text-slate-400">Passion Transports Normandie • Twisto • Astuce • LiA • Nomad</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-6 font-semibold">
+        <a href="#fleet" onclick="switchTab('fleet')" class="hover:text-emerald-600 transition">Parc</a>
+        <a href="#lines" onclick="switchTab('lines')" class="hover:text-emerald-600 transition">Lignes</a>
+        <a href="#movements" onclick="switchTab('movements')" class="hover:text-emerald-600 transition">Mouvements</a>
+        <a href="#news" onclick="switchTab('news')" class="hover:text-emerald-600 transition">Le MAG</a>
+        <a href="#about" onclick="switchTab('about')" class="hover:text-emerald-600 transition">Équipe</a>
+      </div>
+
+      <div class="text-center sm:text-right text-[11px] text-slate-400">
+        <p>&copy; 2024–2026 Histo14Bus. Site non officiel.</p>
+        <p>Développé par Nolhanbj • Données informatives.</p>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="assets/js/fleet.js"></script>
+  <script src="assets/js/lines.js"></script>
+  <script src="assets/js/admin.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

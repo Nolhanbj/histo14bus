@@ -1,0 +1,58 @@
+[
+  {
+    "id": "photo-1788025252701",
+    "title": "City 23 N° 56 au dépôt de la Sphère",
+    "author": "Nolhanbj",
+    "location": "Dépôt",
+    "date": "2025-02-19",
+    "url": "https://static.wixstatic.com/media/50b3cc_67dae359bb8b4e5d960fd2722100f89c~mv2.png/v1/fit/w_536,h_302,q_90,enc_avif,quality_auto/50b3cc_67dae359bb8b4e5d960fd2722100f89c~mv2.png"
+  },
+  {
+    "id": "photo-1",
+    "title": "Alstom Citadis 302 • Rame 1001",
+    "author": "Alexs_14",
+    "location": "Terminus Hérouville Saint-Clair",
+    "url": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=85",
+    "date": "2026-01-15"
+  },
+  {
+    "id": "photo-2",
+    "title": "Iveco Urbanway 12 GNV • N°5220",
+    "author": "Alexis",
+    "location": "En circulation sur la Liane 1 (Chemin Vert)",
+    "url": "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1200&q=85",
+    "date": "2025-11-20"
+  },
+  {
+    "id": "photo-3",
+    "title": "Iveco Urbanway 18 GNV • N°7204",
+    "author": "Nolhanbj",
+    "location": "Gare SNCF de Caen",
+    "url": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=85",
+    "date": "2025-09-08"
+  },
+  {
+    "id": "photo-4",
+    "title": "Mercedes Citaro C2 Hybrid • N°8258",
+    "author": "Alexis",
+    "location": "Ligne 11 Express à Carpiquet",
+    "url": "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1200&q=85",
+    "date": "2025-06-12"
+  },
+  {
+    "id": "photo-5",
+    "title": "Heuliez GX 337 GNV • N°802 Astuce",
+    "author": "Alexs_14",
+    "location": "Rouen Théâtre des Arts",
+    "url": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=85",
+    "date": "2025-05-18"
+  },
+  {
+    "id": "photo-6",
+    "title": "Mercedes Citaro G C2 • N°002 LiA",
+    "author": "Alexis",
+    "location": "Le Havre Hôtel de Ville",
+    "url": "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1200&q=85",
+    "date": "2025-04-02"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "news-1",
+    "title": "Projet Tramway 2029 : Les futures extensions vers l'Ouest et l'Est de Caen",
+    "date": "2026-02-15",
+    "category": "Infrastructures",
+    "badge": "Projet Phare",
+    "badgeColor": "emerald",
+    "author": "Nolhanbj & Alexs_14",
+    "summary": "Caen la mer accélère sur le projet de prolongement du réseau de tramway à l'horizon 2029. De nouveaux quartiers seront reliés et de nouvelles rames sont attendues.",
+    "content": "Le projet Tramway 2029 prévoit une nouvelle desserte structurante pour relier l'ouest caennais (vers le Chemin Vert et Saint-Contest) et l'est (vers la Presqu'île et Mondeville). Une commande complémentaire de rames Alstom Citadis est envisagée pour renforcer les fréquences sur le tronc commun central.",
+    "image": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1000&q=80"
+  },
+  {
+    "id": "news-2",
+    "title": "Transition Énergétique : 100% de la flotte de Lianes convertie au BioGNV",
+    "date": "2026-01-20",
+    "category": "Flotte & Écologie",
+    "badge": "Verdissement",
+    "badgeColor": "emerald",
+    "author": "Alexs_14",
+    "summary": "Avec les dernières livraisons de bus Iveco Urbanway 12 et 18 GNV (séries 5200 et 7200), l'ensemble des Lianes 1, 2, 3 et 4 circule désormais avec une énergie propre.",
+    "content": "La communauté urbaine Caen la mer poursuit avec succès son plan climat. Les bus alimentés en biométhane produit localement permettent une baisse drastique des émissions de particules fines et une réduction significative du bruit en centre-ville.",
+    "image": "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1000&q=80"
+  },
+  {
+    "id": "news-3",
+    "title": "Ajustement du Réseau de Bus : Nouveaux itinéraires sur les lignes 11 et 20",
+    "date": "2025-09-01",
+    "category": "Réseau & Horaires",
+    "badge": "Horaires",
+    "badgeColor": "blue",
+    "author": "Alexis",
+    "summary": "Pour la rentrée scolaire et universitaire, de nouveaux arrêts ont été implantés pour améliorer la desserte des zones d'activités et des nouveaux lotissements.",
+    "content": "La Ligne 11 Express renforce sa fréquence matinale avec un passage toutes les 15 minutes entre 7h00 et 8h45. La Ligne 20 bénéficie quant à elle d'un tracé optimisé à Colombelles pour fluidifier les correspondances avec le pôle d'échange de la Gare SNCF.",
+    "image": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1000&q=80"
+  }
+]

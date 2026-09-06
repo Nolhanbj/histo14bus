@@ -1,0 +1,52 @@
+[
+  {
+    "id": "mov-1",
+    "vehicleNumber": "5290",
+    "model": "Iveco Bus Urbanway 12 GNV",
+    "type": "Arrivée / Livraison",
+    "date": "2026-02-10",
+    "origin": "Usine Iveco Bus (Annonay)",
+    "destination": "Dépôt d'Hérouville Sphère (Twisto)",
+    "details": "Nouveau bus standard BioGNV livré pour le renforcement des fréquences de la Liane 1."
+  },
+  {
+    "id": "mov-2",
+    "vehicleNumber": "360",
+    "model": "Irisbus Citelis 12",
+    "type": "Réforme",
+    "date": "2025-11-20",
+    "origin": "Parc Actif Twisto",
+    "destination": "Réformé / Retrait du service",
+    "details": "Retrait définitif de l'exploitation commerciale après plus de 820 000 km et 15 ans de service sur le réseau caennais."
+  },
+  {
+    "id": "mov-3",
+    "vehicleNumber": "845",
+    "model": "Irisbus Citelis 18",
+    "type": "Mutation / Transfert",
+    "date": "2025-08-15",
+    "origin": "Réseau Astuce (Rouen)",
+    "destination": "Centre de formation conducteurs",
+    "details": "Affectation au centre d'apprentissage et de formation après la fin du service actif TEOR."
+  },
+  {
+    "id": "mov-4",
+    "vehicleNumber": "1025",
+    "model": "Alstom Citadis 302",
+    "type": "Rénovation",
+    "date": "2025-06-30",
+    "origin": "Ateliers de Maintenance Tramway",
+    "destination": "Ligne T1 & T2",
+    "details": "Grande révision mi-vie effectuée avec mise à niveau des écrans d'information voyageurs TFT SAEIV."
+  },
+  {
+    "id": "mov-5",
+    "vehicleNumber": "165",
+    "model": "Heuliez Bus GX 337 Elec",
+    "type": "Arrivée / Livraison",
+    "date": "2025-04-12",
+    "origin": "Heuliez Bus (Rorthais)",
+    "destination": "Dépôt Grand Hameau (LiA Le Havre)",
+    "details": "Nouveau bus 100% électrique à recharge de nuit déployé sur la ligne 1 du Havre."
+  }
+]
