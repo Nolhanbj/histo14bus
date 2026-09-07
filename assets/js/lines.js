@@ -7,6 +7,7 @@
 let linesData = [];
 let activeLineCategory = "all";
 let currentLineDirection = {}; // { lineId: "forward"|"reverse" }
+let lineOrientation = "vertical"; // "vertical" par défaut selon la demande, avec bascule "horizontal" possible
 let expandedLineId = null; // ID de la ligne dont le plan thermomètre est affiché en direct
 
 const LINE_COLORS = {
@@ -352,6 +353,66 @@ function renderNaotcPlan(line, stops) {
   `;
 }
 
+/**
+ * Plan thermomètre VERTICAL (arrêts de haut en bas, noms lisibles à droite)
+ */
+function renderNaotcPlanVertical(line, stops) {
+  const connections   = line.connections   || {};
+  const accessibility = line.accessibility || [];
+
+  const stopsHtml = stops.map((stop, idx) => {
+    const isStart = idx === 0;
+    const isEnd   = idx === stops.length - 1;
+    const isMajor = isStart || isEnd
+      || stop.includes("Gare") || stop.includes("Mairie") || stop.includes("Centre")
+      || stop.includes("Campus") || stop.includes("CHU") || stop.includes("Hopital")
+      || stop.includes("Herouville") || stop.includes("Mondeville") || stop.includes("Carpiquet")
+      || stop.includes("Théâtre") || stop.includes("Université") || stop.includes("Hérouville")
+      || stop.includes("Hôpital") || stop.includes("Mémorial") || stop.includes("Aéroport")
+      || stop.includes("Place Saint-Martin") || stop.includes("Pompidou") || stop.includes("Ifs");
+
+    const conns = connections[stop] || [];
+    const badgesHtml = conns.map(c => {
+      const s = getLineBadgeStyle(c);
+      return `<span class="naotc-conn-badge" style="background:${s.bg};color:${s.text};">${c}</span>`;
+    }).join("");
+
+    const isPmr = accessibility.includes(stop);
+
+    let dotClass = "naotc-vstop-dot ";
+    dotClass += (isStart || isEnd) ? "dot-terminus" : isMajor ? "dot-major" : "dot-minor";
+
+    const dotColor = isEnd ? "#ef4444" : line.color;
+    const dotStyle = dotClass.includes("dot-minor") ? "" : "background:" + dotColor + ";";
+
+    let vstopClass = "naotc-vstop";
+    if (isStart || isEnd) vstopClass += " is-terminus";
+    else if (isMajor) vstopClass += " is-major";
+
+    return `
+      <div class="${vstopClass}" title="${stop}">
+        <div class="naotc-vstop-dot-col">
+          <div class="${dotClass.trim()}" style="${dotStyle}"></div>
+        </div>
+        <div class="naotc-vstop-content">
+          <span class="naotc-vstop-name">
+            ${stop}
+            ${isPmr ? `<span title="Accessible PMR" style="font-size:11px;">♿</span>` : ""}
+          </span>
+          ${badgesHtml ? `<div class="naotc-vstop-connections">${badgesHtml}</div>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="naotc-stops-vertical">
+      <div class="naotc-vertical-line-bar" style="background:${line.color};"></div>
+      ${stopsHtml}
+    </div>
+  `;
+}
+
 function cleanCityPrefix(str) {
   if (!str) return "";
   return str.replace(/^(CAEN|HÉROUVILLE|IFS|MONDEVILLE|COLOMBELLES|BRETTEVILLE)\s+/i, "");
@@ -416,11 +477,19 @@ function renderLineModalBody(line) {
   );
 
   const icon = isTram ? "tram-front" : "bus";
-  const planHtml = renderNaotcPlan(line, stops);
+  const isVertical = lineOrientation === "vertical";
+  const planHtml = isVertical ? renderNaotcPlanVertical(line, stops) : renderNaotcPlan(line, stops);
 
   mc.innerHTML = `
   <div class="p-6 sm:p-8 rounded-t-3xl text-white relative overflow-hidden" style="background:linear-gradient(135deg,${line.color} 0%,#0F172A 100%);">
-    <button onclick="closeLineModal()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 text-white hover:bg-black/60 flex items-center justify-center transition z-10"><i data-lucide="x" class="w-5 h-5"></i></button>
+    <div class="flex items-center justify-between absolute top-4 right-4 gap-2 z-10">
+      <button onclick="toggleLinePlanFullscreen()" title="Plein écran" class="w-9 h-9 rounded-full bg-black/40 text-white hover:bg-black/60 flex items-center justify-center transition" id="btn-fullscreen-line">
+        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+      </button>
+      <button onclick="closeLineModal()" class="w-9 h-9 rounded-full bg-black/40 text-white hover:bg-black/60 flex items-center justify-center transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
     <div class="flex items-center gap-4 mb-4">
       <span class="px-4 py-2 rounded-2xl font-black text-2xl shadow-xl flex items-center gap-2 border border-white/20" style="background:${line.color};color:${line.textColor};"><i data-lucide="${icon}" class="w-6 h-6"></i> ${line.number}</span>
       <div>
@@ -438,16 +507,24 @@ function renderLineModalBody(line) {
       <div><span class="text-xs text-white/70 block">Catégorie</span><span class="font-bold">${line.category}</span></div>
     </div>
   </div>
-  <div class="p-6 sm:p-8 space-y-6 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-b-3xl max-h-[72vh] overflow-y-auto">
+  <div class="p-6 sm:p-8 space-y-6 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-b-3xl line-modal-body-scroll" style="max-height:72vh;overflow-y:auto;">
     <div>
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h3 class="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2"><i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> Plan de Ligne Officiel</h3>
-        <button onclick="toggleLineDirection('${line.id}')" class="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
-          <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> ${stops[0]} &#8594; ${stops[stops.length-1]}
-        </button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="toggleLineDirection('${line.id}')" class="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> ${stops[0]} &#8594; ${stops[stops.length-1]}
+          </button>
+          <button onclick="toggleLineOrientation('${line.id}')" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition" title="Basculer vertical / horizontal">
+            <i data-lucide="${isVertical ? 'align-justify' : 'align-center'}" class="w-3.5 h-3.5"></i> ${isVertical ? 'Horizontal' : 'Vertical'}
+          </button>
+        </div>
       </div>
       <div class="bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner overflow-hidden">
-        <div class="naotc-plan-scroll">${planHtml}</div>
+        ${isVertical
+          ? `<div class="naotc-plan-vertical-container">${planHtml}</div>`
+          : `<div class="naotc-plan-scroll">${planHtml}</div>`
+        }
       </div>
     </div>
     <div>
@@ -466,8 +543,38 @@ function renderLineModalBody(line) {
   </div>`;
 }
 
+function toggleLineOrientation(lineId) {
+  lineOrientation = lineOrientation === "vertical" ? "horizontal" : "vertical";
+  const line = linesData.find(l => l.id === lineId);
+  if (line) { renderLineModalBody(line); lucide.createIcons(); }
+}
+
+function toggleLinePlanFullscreen() {
+  const mc = document.getElementById("line-modal-content");
+  const btn = document.getElementById("btn-fullscreen-line");
+  const modal = document.getElementById("line-modal");
+  if (!mc) return;
+  const isFs = mc.classList.toggle("line-modal-fullscreen");
+  if (btn) {
+    btn.innerHTML = isFs
+      ? `<i data-lucide="minimize-2" class="w-4 h-4"></i>`
+      : `<i data-lucide="maximize-2" class="w-4 h-4"></i>`;
+    lucide.createIcons({ nodes: [btn] });
+  }
+  if (modal) {
+    modal.classList.toggle("items-start", isFs);
+    modal.classList.toggle("p-0", isFs);
+    modal.classList.toggle("sm:p-0", isFs);
+    modal.classList.toggle("items-center", !isFs);
+    modal.classList.toggle("p-4", !isFs);
+    modal.classList.toggle("sm:p-6", !isFs);
+  }
+}
+
 function closeLineModal() {
   const modal = document.getElementById("line-modal");
+  const mc = document.getElementById("line-modal-content");
+  if (mc) mc.classList.remove("line-modal-fullscreen");
   if (modal) modal.classList.add("hidden");
   document.body.classList.remove("overflow-hidden");
 }

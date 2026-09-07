@@ -12,6 +12,7 @@ let activeFilters = {
   network: 'all',
   series: 'all'
 };
+let fleetSort = 'asc'; // 'asc', 'desc', 'year-desc', 'year-asc'
 let viewMode = 'naotc'; // 'naotc', 'grid', or 'table'
 let currentVehicleIndex = -1;
 
@@ -226,7 +227,27 @@ function getFilteredFleet() {
     }
 
     return true;
+  }).sort((a, b) => {
+    const numA = parseInt(String(a.number).replace(/[^0-9]/g, ''), 10) || 0;
+    const numB = parseInt(String(b.number).replace(/[^0-9]/g, ''), 10) || 0;
+    const dateA = a.serviceDate || a.inServiceDate || '';
+    const dateB = b.serviceDate || b.inServiceDate || '';
+
+    if (fleetSort === 'desc') {
+      return numB - numA;
+    } else if (fleetSort === 'year-desc') {
+      return dateB.localeCompare(dateA) || (numB - numA);
+    } else if (fleetSort === 'year-asc') {
+      return dateA.localeCompare(dateB) || (numA - numB);
+    }
+    // Default: 'asc'
+    return numA - numB;
   });
+}
+
+function setFleetSort(sortValue) {
+  fleetSort = sortValue;
+  renderFleet();
 }
 
 function renderFleet() {

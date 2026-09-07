@@ -346,14 +346,24 @@
           </div>
 
           <!-- Series Dropdown -->
-          <div class="w-full sm:w-64">
+          <div class="w-full sm:w-56">
             <select id="filter-series" onchange="activeFilters.series = this.value; renderFleet();" class="w-full py-3 px-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500">
               <option value="all">Toutes les séries</option>
             </select>
           </div>
 
+          <!-- Sort by Fleet Number Dropdown -->
+          <div class="w-full sm:w-56">
+            <select id="sort-fleet" onchange="setFleetSort(this.value);" class="w-full py-3 px-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500">
+              <option value="asc">N° de parc (Croissant)</option>
+              <option value="desc">N° de parc (Décroissant)</option>
+              <option value="year-desc">Année (Récent → Ancien)</option>
+              <option value="year-asc">Année (Ancien → Récent)</option>
+            </select>
+          </div>
+
           <!-- View Mode (NAOTC Gabarit vs Grid vs Table) -->
-          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold flex-shrink-0">
             <button id="view-mode-naotc" onclick="setFleetViewMode('naotc')" class="px-3 py-1.5 rounded-xl transition bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5" title="Vue par Gabarit et Modèle (style NAOTC)">
               <i data-lucide="layers" class="w-4 h-4"></i>
               <span>Style NAOTC</span>
