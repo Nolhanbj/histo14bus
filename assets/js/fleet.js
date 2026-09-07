@@ -12,18 +12,25 @@ let activeFilters = {
   network: 'all',
   series: 'all'
 };
-let viewMode = 'grid'; // 'grid' or 'table'
+let viewMode = 'naotc'; // 'naotc', 'grid', or 'table'
 let currentVehicleIndex = -1;
 
 async function initFleet() {
   try {
-    // Check if there are locally saved fleet updates first
-    const localFleet = localStorage.getItem('histo14_fleet_data');
-    if (localFleet) {
-      try {
-        fleetData = JSON.parse(localFleet);
-      } catch (e) {
-        console.warn('Erreur lecture localFleet:', e);
+    const FLEET_VERSION = "2026_v4_naotc";
+    const storedVersion = localStorage.getItem('histo14_fleet_version');
+    if (storedVersion !== FLEET_VERSION) {
+      localStorage.removeItem('histo14_fleet_data');
+      localStorage.setItem('histo14_fleet_version', FLEET_VERSION);
+      fleetData = [];
+    } else {
+      const localFleet = localStorage.getItem('histo14_fleet_data');
+      if (localFleet) {
+        try {
+          fleetData = JSON.parse(localFleet);
+        } catch (e) {
+          console.warn('Erreur lecture localFleet:', e);
+        }
       }
     }
 
@@ -32,6 +39,7 @@ async function initFleet() {
       fleetData = await response.json();
       localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
     }
+
 
     updateFleetStats();
     updateNetworkCardCounts();
@@ -250,7 +258,10 @@ function renderFleet() {
     return;
   }
 
-  if (viewMode === 'grid') {
+  if (viewMode === 'naotc') {
+    container.className = 'col-span-full space-y-6';
+    container.innerHTML = renderVehicleNaotc(filtered);
+  } else if (viewMode === 'grid') {
     container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
     container.innerHTML = filtered.map(v => renderVehicleCard(v)).join('');
   } else {
@@ -260,6 +271,172 @@ function renderFleet() {
 
   lucide.createIcons();
 }
+
+function setFleetViewMode(mode) {
+  viewMode = mode;
+  ['naotc', 'grid', 'table'].forEach(m => {
+    const btn = document.getElementById(`view-mode-${m}`);
+    if (btn) {
+      if (m === mode) {
+        btn.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-emerald-600', 'dark:text-emerald-400');
+        btn.classList.remove('text-slate-500');
+      } else {
+        btn.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-emerald-600', 'dark:text-emerald-400');
+        btn.classList.add('text-slate-500');
+      }
+    }
+  });
+  renderFleet();
+}
+
+function calculateAge(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date('2026-09-01');
+  let months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  if (years <= 0) return `${rem} mois`;
+  return `${years} an${years > 1 ? 's' : ''}${rem > 0 ? ` et ${rem} mois` : ''}`;
+}
+
+const collapsedGabarits = {};
+const collapsedModels = {};
+
+function toggleGabaritCollapse(key) {
+  collapsedGabarits[key] = !collapsedGabarits[key];
+  const body = document.getElementById(`body-gab-${key}`);
+  const chev = document.getElementById(`chev-gab-${key}`);
+  if (body) body.classList.toggle('hidden', collapsedGabarits[key]);
+  if (chev) chev.style.transform = collapsedGabarits[key] ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+function toggleModelCollapse(key) {
+  collapsedModels[key] = !collapsedModels[key];
+  const table = document.getElementById(`table-mod-${key}`);
+  const chev = document.getElementById(`chev-mod-${key}`);
+  if (table) table.classList.toggle('hidden', collapsedModels[key]);
+  if (chev) chev.style.transform = collapsedModels[key] ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+function renderVehicleNaotc(vehicles) {
+  const GABARIT_LIST = [
+    { title: "Tramway", icon: "tram-front", matcher: v => v.type === 'Tramway' || (v.gabarit && v.gabarit.includes('Tramway')) },
+    { title: "Bus Articulés (18 m)", icon: "bus", matcher: v => (v.type && v.type.includes('Articulé')) || (v.gabarit && v.gabarit.includes('Articulé')) },
+    { title: "Bus Standards (12 m)", icon: "bus", matcher: v => (v.type && v.type.includes('Standard')) || (v.gabarit && v.gabarit.includes('Standard')) },
+    { title: "Midibus & Minibus", icon: "van", matcher: v => (v.type && (v.type.includes('Mini') || v.type.includes('Midi'))) || (v.gabarit && v.gabarit.includes('Mini')) },
+    { title: "Autocars interurbains & scolaires", icon: "shield", matcher: v => (v.type && v.type.includes('Autocar')) || (v.gabarit && v.gabarit.includes('Autocar')) }
+  ];
+
+  let html = '';
+
+  GABARIT_LIST.forEach((gab, gIndex) => {
+    const matchedVehicles = vehicles.filter(gab.matcher);
+    if (matchedVehicles.length === 0) return;
+
+    // Regrouper par Modèle
+    const modelGroups = {};
+    matchedVehicles.forEach(v => {
+      const modelKey = `${v.brand || ''} ${v.model || 'Inconnu'}`.trim();
+      if (!modelGroups[modelKey]) modelGroups[modelKey] = [];
+      modelGroups[modelKey].push(v);
+    });
+
+    const isGabCollapsed = !!collapsedGabarits[gIndex];
+
+    const modelsHtml = Object.keys(modelGroups).sort().map((mKey, mIndex) => {
+      const mVehicles = modelGroups[mKey];
+      const firstV = mVehicles[0];
+      const fullModelKey = `${gIndex}_${mIndex}`;
+      const isModCollapsed = !!collapsedModels[fullModelKey];
+
+      let energyBadgeClass = 'badge-diesel';
+      if (firstV.energy && firstV.energy.includes('GNV')) energyBadgeClass = 'badge-gnv';
+      else if (firstV.energy && firstV.energy.includes('Électrique')) energyBadgeClass = 'badge-electric';
+      else if (firstV.energy && firstV.energy.includes('Hybride')) energyBadgeClass = 'badge-hybrid';
+
+      return `
+        <div class="naotc-model-card" id="card-mod-${fullModelKey}">
+          <div class="naotc-model-head" onclick="toggleModelCollapse('${fullModelKey}')">
+            <div class="flex items-center gap-3 flex-wrap">
+              <span class="naotc-model-title">${firstV.model}</span>
+              <span class="naotc-model-brand">${firstV.brand || ''}</span>
+              <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full ${energyBadgeClass}">
+                ${firstV.energy || 'Diesel'}
+              </span>
+            </div>
+            <div class="naotc-model-count">
+              ${mVehicles.length} véhicule${mVehicles.length > 1 ? 's' : ''}
+            </div>
+            <i data-lucide="chevron-down" id="chev-mod-${fullModelKey}" class="w-4 h-4 text-slate-400 transition-transform ml-2" style="transform:${isModCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'}"></i>
+          </div>
+
+          <div class="overflow-x-auto ${isModCollapsed ? 'hidden' : ''}" id="table-mod-${fullModelKey}">
+            <table class="naotc-vtable">
+              <thead>
+                <tr>
+                  <th>N° Parc</th>
+                  <th>Immatriculation</th>
+                  <th>Mise en service</th>
+                  <th>Exploitant</th>
+                  <th>Dépôt</th>
+                  <th>Statut</th>
+                  <th class="text-right">Fiche</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${mVehicles.map(v => `
+                  <tr onclick="openVehicleModal('${v.id}')">
+                    <td class="font-bold text-slate-900 dark:text-white">
+                      <span class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                        N° ${v.number}
+                      </span>
+                    </td>
+                    <td>${renderLicensePlate(v.plate || v.registration)}</td>
+                    <td class="font-medium">${formatDate(v.serviceDate || v.inServiceDate)} <span class="text-[10px] text-slate-400">(${calculateAge(v.serviceDate || v.inServiceDate)})</span></td>
+                    <td>${v.operator || '-'}</td>
+                    <td>${v.depot || '-'}</td>
+                    <td>
+                      <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${v.status === 'Actuel' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'}">
+                        ${v.status || 'Actuel'}
+                      </span>
+                    </td>
+                    <td class="text-right">
+                      <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Voir fiche →</span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    html += `
+      <div class="naotc-gabarit-section">
+        <div class="naotc-gabarit-head" onclick="toggleGabaritCollapse('${gIndex}')">
+          <div class="naotc-gabarit-title">
+            <i data-lucide="${gab.icon}" class="w-5 h-5 text-emerald-600"></i>
+            <span>${gab.title}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="naotc-gabarit-badge">${matchedVehicles.length} véhicules</span>
+            <i data-lucide="chevron-down" id="chev-gab-${gIndex}" class="w-4 h-4 text-slate-400 transition-transform" style="transform:${isGabCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'}"></i>
+          </div>
+        </div>
+
+        <div class="naotc-gabarit-body ${isGabCollapsed ? 'hidden' : ''}" id="body-gab-${gIndex}">
+          ${modelsHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
 
 function renderVehicleCard(v) {
   const isTram = v.type === 'Tramway';

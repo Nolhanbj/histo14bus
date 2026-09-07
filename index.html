@@ -352,13 +352,19 @@
             </select>
           </div>
 
-          <!-- View Mode (Grid vs Table) -->
-          <div class="hidden sm:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <button onclick="viewMode = 'grid'; renderFleet();" class="p-2 rounded-xl transition ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}" title="Vue Grille">
-              <i data-lucide="grid" class="w-4 h-4"></i>
+          <!-- View Mode (NAOTC Gabarit vs Grid vs Table) -->
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
+            <button id="view-mode-naotc" onclick="setFleetViewMode('naotc')" class="px-3 py-1.5 rounded-xl transition bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5" title="Vue par Gabarit et Modèle (style NAOTC)">
+              <i data-lucide="layers" class="w-4 h-4"></i>
+              <span>Style NAOTC</span>
             </button>
-            <button onclick="viewMode = 'table'; renderFleet();" class="p-2 rounded-xl transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}" title="Vue Tableau">
+            <button id="view-mode-grid" onclick="setFleetViewMode('grid')" class="px-3 py-1.5 rounded-xl transition text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1.5" title="Vue Grille de Cartes">
+              <i data-lucide="grid" class="w-4 h-4"></i>
+              <span class="hidden md:inline">Cartes</span>
+            </button>
+            <button id="view-mode-table" onclick="setFleetViewMode('table')" class="px-3 py-1.5 rounded-xl transition text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1.5" title="Vue Tableau">
               <i data-lucide="list" class="w-4 h-4"></i>
+              <span class="hidden md:inline">Tableau</span>
             </button>
           </div>
         </div>
@@ -587,7 +593,7 @@
   <!-- MODAL: LINE DETAIL (FICHE LIGNE DÉTAILLÉE)                                -->
   <!-- ========================================================================= -->
   <div id="line-modal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-backdrop flex items-center justify-center p-4 sm:p-6" onclick="if (event.target === this) closeLineModal();">
-    <div id="line-modal-content" class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 modal-enter-active">
+    <div id="line-modal-content" class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 modal-enter-active my-6">
       <!-- Injected by lines.js -->
     </div>
   </div>
