@@ -364,9 +364,9 @@
 
           <!-- View Mode (NAOTC Gabarit vs Grid vs Table) -->
           <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold flex-shrink-0">
-            <button id="view-mode-naotc" onclick="setFleetViewMode('naotc')" class="px-3 py-1.5 rounded-xl transition bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5" title="Vue par Gabarit et Modèle (style NAOTC)">
+            <button id="view-mode-naotc" onclick="setFleetViewMode('naotc')" class="px-3 py-1.5 rounded-xl transition bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5" title="Vue par Gabarit et Modèle">
               <i data-lucide="layers" class="w-4 h-4"></i>
-              <span>Style NAOTC</span>
+              <span>Par Modèle</span>
             </button>
             <button id="view-mode-grid" onclick="setFleetViewMode('grid')" class="px-3 py-1.5 rounded-xl transition text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1.5" title="Vue Grille de Cartes">
               <i data-lucide="grid" class="w-4 h-4"></i>
@@ -480,10 +480,6 @@
             <button onclick="filterLinesByCategory('Scolaire', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🎓 Scolaires (100-138)</button>
             <button onclick="filterLinesByCategory('Flex', this)" class="line-category-btn px-3 py-1.5 rounded-xl font-bold transition">🚐 Navettes & Flex</button>
           </div>
-
-          <button onclick="if(typeof resetLinesToOfficialTwisto==='function') resetLinesToOfficialTwisto();" class="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/80 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm" title="Recharger les lignes et plans officiels depuis twisto.fr">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync Twisto.fr
-          </button>
         </div>
       </div>
 
