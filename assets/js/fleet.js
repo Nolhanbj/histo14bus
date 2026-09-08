@@ -18,7 +18,7 @@ let currentVehicleIndex = -1;
 
 async function initFleet() {
   try {
-    const FLEET_VERSION = "2026_v4_naotc";
+    const FLEET_VERSION = "2026_v5_utf8fix";
     const storedVersion = localStorage.getItem('histo14_fleet_version');
     if (storedVersion !== FLEET_VERSION) {
       localStorage.removeItem('histo14_fleet_data');

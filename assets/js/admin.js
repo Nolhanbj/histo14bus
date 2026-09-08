@@ -378,31 +378,34 @@ function renderAdminModalContent() {
     <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-800 text-xs">
       <div class="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
         <button type="button" onclick="switchAdminTab('vehicle')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'vehicle' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="bus" class="w-4 h-4"></i> Véhicules & Flotte
+          <i data-lucide="bus" class="w-4 h-4"></i> Véhicules &amp; Flotte
         </button>
         <button type="button" onclick="switchAdminTab('line')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'line' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="route" class="w-4 h-4"></i> Lignes & Plans
+          <i data-lucide="route" class="w-4 h-4"></i> Lignes &amp; Plans
         </button>
         <button type="button" onclick="switchAdminTab('plan_editor')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'plan_editor' ? 'bg-emerald-600 text-white shadow-md' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-300/40'}">
-          <i data-lucide="pen-tool" class="w-4 h-4"></i> Éditeur de Plans NAOTC
+          <i data-lucide="pen-tool" class="w-4 h-4"></i> Éditeur de Plans
         </button>
         <button type="button" onclick="switchAdminTab('photo')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'photo' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
           <i data-lucide="camera" class="w-4 h-4"></i> Photos Galerie
         </button>
         <button type="button" onclick="switchAdminTab('news')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'news' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="newspaper" class="w-4 h-4"></i> Le MAG & Mouvements
+          <i data-lucide="newspaper" class="w-4 h-4"></i> Le MAG &amp; Mouvements
         </button>
         <button type="button" onclick="switchAdminTab('users')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'users' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="users" class="w-4 h-4"></i> Personnes & Accès
+          <i data-lucide="users" class="w-4 h-4"></i> Personnes &amp; Accès
         </button>
         <button type="button" onclick="switchAdminTab('presets')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'presets' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="tag" class="w-4 h-4"></i> Marques & Presets
+          <i data-lucide="tag" class="w-4 h-4"></i> Marques &amp; Presets
         </button>
         <button type="button" onclick="switchAdminTab('backup')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'backup' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
           <i data-lucide="database" class="w-4 h-4"></i> Sauvegardes / JSON
         </button>
         <button type="button" onclick="switchAdminTab('site')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'site' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="settings" class="w-4 h-4"></i> Site & Navigation
+          <i data-lucide="settings" class="w-4 h-4"></i> Site &amp; Navigation
+        </button>
+        <button type="button" onclick="switchAdminTab('appearance')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'appearance' ? 'bg-violet-600 text-white shadow-md' : 'bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 hover:bg-violet-100 border border-violet-300/40'}">
+          <i data-lucide="palette" class="w-4 h-4"></i> Apparence
         </button>
       </div>
 
@@ -436,6 +439,7 @@ function getAdminTabContentHtml(presets, accounts) {
   if (activeAdminTab === 'presets') return getPresetsTabContentHtml(presets);
   if (activeAdminTab === 'backup') return getBackupTabContentHtml();
   if (activeAdminTab === 'site') return getSiteTabContentHtml();
+  if (activeAdminTab === 'appearance') return getAppearanceTabContentHtml();
   return '';
 }
 
@@ -2571,6 +2575,268 @@ function resetSiteSettings() {
 }
 
 /* =========================================================================
+   TAB 10: APPARENCE & MODE FULL OPTION (PERSONNALISATION TOTALE)
+   ========================================================================= */
+
+const APPEARANCE_SETTINGS_KEY = 'histo14_appearance_settings_v1';
+
+function getDefaultAppearanceSettings() {
+  return {
+    primaryColor: '#00875A',
+    secondaryColor: '#0D9488',
+    defaultFleetView: 'naotc',
+    heroStatsVisible: true,
+    networkCardsVisible: true,
+    fullOptionMode: true,
+    compactHeader: false,
+    enableAnimations: true,
+    fontFamily: 'Plus Jakarta Sans',
+    siteThemeMode: 'auto'
+  };
+}
+
+function getAppearanceSettings() {
+  try {
+    const raw = localStorage.getItem(APPEARANCE_SETTINGS_KEY);
+    if (raw) return { ...getDefaultAppearanceSettings(), ...JSON.parse(raw) };
+  } catch(e) {}
+  return getDefaultAppearanceSettings();
+}
+
+function saveAppearanceSettings(settings) {
+  localStorage.setItem(APPEARANCE_SETTINGS_KEY, JSON.stringify(settings));
+  applyAppearanceSettings(settings);
+}
+
+function applyAppearanceSettings(settings) {
+  if (!settings) settings = getAppearanceSettings();
+
+  // 1. Couleurs personnalisées via CSS variables
+  if (settings.primaryColor) {
+    document.documentElement.style.setProperty('--twisto-green', settings.primaryColor);
+    document.documentElement.style.setProperty('--twisto-accent', settings.primaryColor);
+  }
+  if (settings.secondaryColor) {
+    document.documentElement.style.setProperty('--twisto-teal', settings.secondaryColor);
+  }
+
+  // 2. Vue par défaut du parc
+  if (settings.defaultFleetView && typeof setFleetViewMode === 'function') {
+    if (typeof viewMode !== 'undefined' && viewMode !== settings.defaultFleetView) {
+      setFleetViewMode(settings.defaultFleetView);
+    }
+  }
+
+  // 3. Affichage / Masquage du bandeau Hero metrics
+  const heroMetrics = document.querySelector('section.relative.overflow-hidden .grid');
+  if (heroMetrics) {
+    heroMetrics.style.display = settings.heroStatsVisible === false ? 'none' : '';
+  }
+
+  // 4. Affichage / Masquage du sélecteur de réseau (grandes cartes)
+  const networkCards = document.getElementById('network-cards-container');
+  if (networkCards) {
+    const parentContainer = networkCards.parentElement;
+    if (parentContainer) {
+      parentContainer.style.display = settings.networkCardsVisible === false ? 'none' : '';
+    }
+  }
+
+  // 5. Mode Full Option (affiche options avancées comme le tri poussé, filtres énergie, boutons rapides)
+  const fullOptElements = document.querySelectorAll('.full-option-only');
+  fullOptElements.forEach(el => {
+    el.style.display = settings.fullOptionMode ? '' : 'none';
+  });
+
+  // 6. Police d'écriture
+  if (settings.fontFamily) {
+    document.documentElement.style.setProperty('--twisto-font', `'${settings.fontFamily}', system-ui, sans-serif`);
+  }
+}
+
+function getAppearanceTabContentHtml() {
+  const app = getAppearanceSettings();
+
+  return `
+    <form id="appearance-settings-form" onsubmit="handleSaveAppearanceSettings(event)" class="space-y-6">
+      <!-- Section En-tête -->
+      <div class="bg-gradient-to-r from-violet-600/10 to-indigo-600/10 dark:from-violet-950/40 dark:to-indigo-950/40 p-5 rounded-2xl border border-violet-300/40 dark:border-violet-700/40 flex items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 text-xs font-black rounded-lg bg-violet-600 text-white uppercase tracking-wider">Mode Full Option</span>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Personnalisation Visuelle &amp; Affichage</h3>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Modifiez en direct les couleurs dominantes, la disposition du parc, le style des plans et activez/désactivez les modules du site.
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-300 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="palette" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Section: Palette de Couleurs & Thème -->
+      <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-4">
+        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="paint-brush" class="w-4 h-4 text-violet-600"></i> Couleurs &amp; Ambiance Graphique
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Couleur Principale (Primaire)</label>
+              <span class="text-[11px] text-slate-400">Boutons, badges et accents (défaut Twisto : #00875A)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="color" name="primaryColor" value="${app.primaryColor}" class="w-10 h-10 rounded-xl cursor-pointer border border-slate-300 dark:border-slate-600 bg-transparent" />
+              <button type="button" onclick="document.querySelector('[name=primaryColor]').value = '#00875A'" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white">Reset</button>
+            </div>
+          </div>
+
+          <div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Couleur Secondaire (Accent)</label>
+              <span class="text-[11px] text-slate-400">Glows, surlignages et métriques (défaut : #0D9488)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="color" name="secondaryColor" value="${app.secondaryColor}" class="w-10 h-10 rounded-xl cursor-pointer border border-slate-300 dark:border-slate-600 bg-transparent" />
+              <button type="button" onclick="document.querySelector('[name=secondaryColor]').value = '#0D9488'" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white">Reset</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Mode d'affichage et Disposition -->
+      <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-4">
+        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="layout" class="w-4 h-4 text-violet-600"></i> Affichage par Défaut du Parc
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
+            <input type="radio" name="defaultFleetView" value="naotc" ${app.defaultFleetView === 'naotc' ? 'checked' : ''} class="mt-1 accent-violet-600" />
+            <div>
+              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Par Modèle</div>
+              <div class="text-[11px] text-slate-400">Groupé par gabarit (Standard, Articulé, Tram) et modèle</div>
+            </div>
+          </label>
+
+          <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
+            <input type="radio" name="defaultFleetView" value="grid" ${app.defaultFleetView === 'grid' ? 'checked' : ''} class="mt-1 accent-violet-600" />
+            <div>
+              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Grille de Cartes</div>
+              <div class="text-[11px] text-slate-400">Fiches individuelles avec photos et spécifications</div>
+            </div>
+          </label>
+
+          <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
+            <input type="radio" name="defaultFleetView" value="table" ${app.defaultFleetView === 'table' ? 'checked' : ''} class="mt-1 accent-violet-600" />
+            <div>
+              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Tableau Dense</div>
+              <div class="text-[11px] text-slate-400">Tableau compact de style tableur technique</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Section: Options d'Affichage Avancées (Mode Full Option) -->
+      <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-4">
+        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-violet-600"></i> Modules &amp; Mode Full Option
+        </h4>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div>
+              <div class="text-xs font-bold text-slate-800 dark:text-white">Mode Full Option activé</div>
+              <div class="text-[11px] text-slate-400">Active toutes les métriques détaillées, les raccourcis spotteurs et les options poussées</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="fullOptionMode" ${app.fullOptionMode ? 'checked' : ''} class="w-5 h-5 accent-violet-600 rounded" />
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div>
+              <div class="text-xs font-bold text-slate-800 dark:text-white">Bannière de Statistiques en direct (Hero)</div>
+              <div class="text-[11px] text-slate-400">Compteurs de flotte en haut de page (Total, Actif, Tramway, BioGNV)</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="heroStatsVisible" ${app.heroStatsVisible !== false ? 'checked' : ''} class="w-5 h-5 accent-violet-600 rounded" />
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div>
+              <div class="text-xs font-bold text-slate-800 dark:text-white">Sélecteur de Réseau (Grandes cartes Twisto, Astuce, LiA, Nomad)</div>
+              <div class="text-[11px] text-slate-400">Bloc de sélection visuelle situé au-dessus de la barre de recherche</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="networkCardsVisible" ${app.networkCardsVisible !== false ? 'checked' : ''} class="w-5 h-5 accent-violet-600 rounded" />
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div>
+              <div class="text-xs font-bold text-slate-800 dark:text-white">Police de caractères principale</div>
+              <div class="text-[11px] text-slate-400">Typographie utilisée sur tout le portail</div>
+            </div>
+            <select name="fontFamily" class="px-3 py-1.5 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none">
+              <option value="Plus Jakarta Sans" ${app.fontFamily === 'Plus Jakarta Sans' ? 'selected' : ''}>Plus Jakarta Sans (Moderne)</option>
+              <option value="Inter" ${app.fontFamily === 'Inter' ? 'selected' : ''}>Inter (Épuré)</option>
+              <option value="system-ui" ${app.fontFamily === 'system-ui' ? 'selected' : ''}>Système par défaut</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boutons de soumission -->
+      <div class="flex items-center justify-between pt-2">
+        <button type="button" onclick="resetAppearanceSettings()" class="px-4 py-2 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-red-200 dark:border-red-800">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Rétablir les couleurs d'origine
+        </button>
+        <button type="submit" class="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-md shadow-violet-600/25">
+          <i data-lucide="save" class="w-4 h-4"></i> Appliquer les changements d'apparence
+        </button>
+      </div>
+    </form>
+  `;
+}
+
+function handleSaveAppearanceSettings(event) {
+  event.preventDefault();
+  const form = document.getElementById('appearance-settings-form');
+  if (!form) return;
+
+  const primaryColor = form.querySelector('[name="primaryColor"]')?.value || '#00875A';
+  const secondaryColor = form.querySelector('[name="secondaryColor"]')?.value || '#0D9488';
+  const defaultFleetView = form.querySelector('[name="defaultFleetView"]:checked')?.value || 'naotc';
+  const fullOptionMode = form.querySelector('[name="fullOptionMode"]')?.checked ?? true;
+  const heroStatsVisible = form.querySelector('[name="heroStatsVisible"]')?.checked ?? true;
+  const networkCardsVisible = form.querySelector('[name="networkCardsVisible"]')?.checked ?? true;
+  const fontFamily = form.querySelector('[name="fontFamily"]')?.value || 'Plus Jakarta Sans';
+
+  const settings = {
+    primaryColor,
+    secondaryColor,
+    defaultFleetView,
+    fullOptionMode,
+    heroStatsVisible,
+    networkCardsVisible,
+    fontFamily
+  };
+
+  saveAppearanceSettings(settings);
+  showToast('✅ Apparence mise à jour et appliquée en direct !');
+}
+
+function resetAppearanceSettings() {
+  if (confirm('Rétablir toutes les options graphiques et couleurs par défaut ?')) {
+    localStorage.removeItem(APPEARANCE_SETTINGS_KEY);
+    applyAppearanceSettings(getDefaultAppearanceSettings());
+    renderAdminModalContent();
+    showToast('Apparence rétablie par défaut.');
+  }
+}
+
+/* =========================================================================
    NAOTC PLAN INTERACTIVE EDITOR MODULE
    ========================================================================= */
 
@@ -2918,6 +3184,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedSettings = getSiteSettings();
   if (localStorage.getItem(SITE_SETTINGS_KEY)) {
     applySiteSettings(savedSettings);
+  }
+  // Apply saved appearance settings on page load
+  if (typeof applyAppearanceSettings === 'function') {
+    applyAppearanceSettings(getAppearanceSettings());
   }
 });
 

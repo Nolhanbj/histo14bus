@@ -7,7 +7,7 @@
 let linesData = [];
 let activeLineCategory = "all";
 let currentLineDirection = {}; // { lineId: "forward"|"reverse" }
-let lineOrientation = "vertical"; // "vertical" par défaut selon la demande, avec bascule "horizontal" possible
+let lineOrientation = "horizontal"; // "horizontal" par défaut (lisible comme les plans officiels), avec bascule "vertical" possible
 let expandedLineId = null; // ID de la ligne dont le plan thermomètre est affiché en direct
 
 const LINE_COLORS = {
