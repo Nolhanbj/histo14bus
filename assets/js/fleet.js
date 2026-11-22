@@ -544,7 +544,12 @@ function renderVehicleCard(v) {
   else if (v.network && v.network.includes('Nomad')) networkBadgeBg = 'bg-amber-700/90 text-white';
 
   const linesHtml = v.lines && v.lines.length > 0 
-    ? v.lines.slice(0, 4).map(line => `<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">${line}</span>`).join(' ')
+    ? v.lines.slice(0, 4).map(line => {
+        const m = line.match(/^(.*?)\s*\((.*?)\)$/);
+        const name = m ? m[1].trim() : line;
+        const period = m ? m[2].trim() : '';
+        return `<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200" title="${period ? `${name} (${period})` : name}">${name}</span>`;
+      }).join(' ')
     : '<span class="text-xs text-slate-400">Non spécifié</span>';
 
   return `
@@ -845,11 +850,18 @@ function openVehicleModal(id) {
             </span>
           </div>
           <div class="flex flex-wrap gap-2">
-            ${vehicle.lines.map(l => `
-              <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5">
-                <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600"></i> ${l}
-              </span>
-            `).join('')}
+            ${vehicle.lines.map(l => {
+              const match = l.match(/^(.*?)\s*\((.*?)\)$/);
+              const lineTitle = match ? match[1].trim() : l;
+              const periodText = match ? match[2].trim() : '';
+              return `
+                <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5 flex-wrap">
+                  <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
+                  <span>${lineTitle}</span>
+                  ${periodText ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-xs font-semibold font-mono flex items-center gap-1">📅 ${periodText}</span>` : ''}
+                </span>
+              `;
+            }).join('')}
           </div>
         </div>
       ` : ''}

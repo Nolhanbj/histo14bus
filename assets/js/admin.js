@@ -734,6 +734,22 @@ function getVehicleFormHtml(editId = null, presets = null) {
                 }).join('')}
               </div>
             </div>
+
+            <!-- Historique des Exploitants -->
+            <div class="mt-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="history" class="w-3.5 h-3.5 text-blue-600"></i> Consigner un exploitant dans l'historique avec période :
+              </span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="text" id="hist-operator-name" list="presets-operators-list" placeholder="Exploitant (ex: Keolis Caen la mer)" class="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" />
+                <input type="text" id="hist-operator-period" placeholder="Période (ex: 2019 à 2024 ou 01/10/2019 au 31/12/2024)" class="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div class="flex justify-end pt-1">
+                <button type="button" onclick="handleAddOperatorToHistory()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-sm">
+                  <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Enregistrer dans l'historique
+                </button>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -885,6 +901,26 @@ function getVehicleFormHtml(editId = null, presets = null) {
           <span class="text-xs text-emerald-600 font-bold" id="history-count-badge">${tempVehicleHistory.length} événement(s)</span>
         </div>
 
+        <!-- Modèles rapides d'insertion -->
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span class="text-slate-500 font-bold mr-1">Modèles rapides :</span>
+          <button type="button" onclick="insertHistoryTemplate('affectation')" class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 font-semibold hover:bg-emerald-100 flex items-center gap-1">
+            <i data-lucide="route" class="w-3 h-3"></i> Affectation Ligne
+          </button>
+          <button type="button" onclick="insertHistoryTemplate('exploitant')" class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-300/40 font-semibold hover:bg-blue-100 flex items-center gap-1">
+            <i data-lucide="building" class="w-3 h-3"></i> Exploitant
+          </button>
+          <button type="button" onclick="insertHistoryTemplate('service')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-200 flex items-center gap-1">
+            <i data-lucide="check-circle" class="w-3 h-3"></i> Mise en service
+          </button>
+          <button type="button" onclick="insertHistoryTemplate('livree')" class="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300/40 font-semibold hover:bg-amber-100 flex items-center gap-1">
+            <i data-lucide="palette" class="w-3 h-3"></i> Livrée
+          </button>
+          <button type="button" onclick="insertHistoryTemplate('reforme')" class="px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-300/40 font-semibold hover:bg-red-100 flex items-center gap-1">
+            <i data-lucide="alert-triangle" class="w-3 h-3"></i> Réforme
+          </button>
+        </div>
+
         <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Ajouter un événement :</label>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -923,10 +959,15 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
 
         <div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">Lignes & services fréquents (cliquez pour affecter/désaffecter) :</span>
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">Lignes & services fréquents (cliquez pour pré-remplir la ligne) :</span>
           <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700" id="preset-lines-container">
             ${(presets.standardLines || []).map(lineName => {
-              const isChecked = Array.isArray(tempVehicleLines) && tempVehicleLines.includes(lineName);
+              const linesList = Array.isArray(tempVehicleLines) ? tempVehicleLines : [];
+              const isChecked = linesList.some(item => {
+                if (item === lineName) return true;
+                const match = item.match(/^(.*?)\s*\((.*?)\)$/);
+                return match && match[1].trim() === lineName;
+              });
               return `
                 <button type="button" onclick="toggleVehicleLine('${lineName.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border ${isChecked ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}">
                   <i data-lucide="${isChecked ? 'check' : 'plus'}" class="w-3.5 h-3.5"></i> ${lineName}
@@ -936,24 +977,53 @@ function getVehicleFormHtml(editId = null, presets = null) {
           </div>
         </div>
 
-        <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-          <input type="text" id="new-custom-line-input" placeholder="Ajouter une ligne personnalisée (ex: L12EX, Navette Plage, Réserve...)" class="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-          <button type="button" onclick="handleAddCustomLine()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm">
-            <i data-lucide="plus" class="w-4 h-4"></i> Affecter
-          </button>
+        <!-- Formulaire d'ajout d'affectation avec période -->
+        <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+            <div class="sm:col-span-5">
+              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Ligne / Service affecté *</label>
+              <input type="text" id="new-custom-line-input" placeholder="ex: Liane 1, T1, NVCV..." class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" />
+            </div>
+            <div class="sm:col-span-4">
+              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Période (ex: Septembre 2024 à Juillet 2025)</label>
+              <input type="text" id="new-custom-line-period" placeholder="ex: 09/2024 - 07/2025 ou En cours" class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <div class="sm:col-span-3 flex items-end">
+              <button type="button" onclick="handleAddCustomLine()" class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition shadow-sm h-[34px]">
+                <i data-lucide="plus" class="w-4 h-4"></i> Affecter
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer font-medium">
+              <input type="checkbox" id="line-add-to-history" checked class="w-4 h-4 rounded accent-emerald-600" />
+              <span>Consigner aussi automatiquement cette période dans l'<strong>Historique Chronologique</strong></span>
+            </label>
+          </div>
         </div>
 
         <div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Lignes actuellement affectées à ce véhicule :</span>
-          <div id="active-lines-container" class="flex flex-wrap gap-1.5 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[45px]">
-            ${(Array.isArray(tempVehicleLines) ? tempVehicleLines : []).map((l, idx) => `
-              <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
-                <i data-lucide="navigation" class="w-3 h-3 text-emerald-600"></i> ${l}
-                <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
-                  <i data-lucide="x" class="w-3 h-3"></i>
-                </button>
-              </span>
-            `).join('')}
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Lignes & affectations de ce véhicule :</span>
+          <div id="active-lines-container" class="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[45px]">
+            ${(Array.isArray(tempVehicleLines) ? tempVehicleLines : []).map((l, idx) => {
+              let lineTitle = l;
+              let periodText = '';
+              const match = l.match(/^(.*?)\s*\((.*?)\)$/);
+              if (match) {
+                lineTitle = match[1].trim();
+                periodText = match[2].trim();
+              }
+              return `
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold shadow-sm">
+                  <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
+                  <strong class="font-bold">${lineTitle}</strong>
+                  ${periodText ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-[11px] font-mono flex items-center gap-1">📅 ${periodText}</span>` : ''}
+                  <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1 transition" title="Supprimer cette affectation">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  </button>
+                </span>
+              `;
+            }).join('')}
           </div>
         </div>
 
@@ -1075,27 +1145,59 @@ function selectVehicleOperator(op) {
 }
 
 function toggleVehicleLine(line) {
-  if (!Array.isArray(tempVehicleLines)) tempVehicleLines = [];
-  if (tempVehicleLines.includes(line)) {
-    tempVehicleLines = tempVehicleLines.filter(l => l !== line);
-  } else {
-    tempVehicleLines.push(line);
+  const inputLine = document.getElementById('new-custom-line-input');
+  const inputPeriod = document.getElementById('new-custom-line-period');
+  if (inputLine) {
+    inputLine.value = line;
+    if (inputPeriod) {
+      inputPeriod.focus();
+    }
   }
-  refreshVehicleFormLines();
 }
 
 function handleAddCustomLine() {
-  const input = document.getElementById('new-custom-line-input');
-  if (!input) return;
-  const val = input.value.trim();
-  if (val) {
-    if (!Array.isArray(tempVehicleLines)) tempVehicleLines = [];
-    if (!tempVehicleLines.includes(val)) {
-      tempVehicleLines.push(val);
-      input.value = '';
-      refreshVehicleFormLines();
-    }
+  const lineInput = document.getElementById('new-custom-line-input');
+  const periodInput = document.getElementById('new-custom-line-period');
+  const addToHistCb = document.getElementById('line-add-to-history');
+  if (!lineInput) return;
+
+  const lineVal = lineInput.value.trim();
+  const periodVal = periodInput ? periodInput.value.trim() : '';
+  if (!lineVal) return;
+
+  const fullLineEntry = periodVal ? `${lineVal} (${periodVal})` : lineVal;
+
+  if (!Array.isArray(tempVehicleLines)) tempVehicleLines = [];
+  if (!tempVehicleLines.includes(fullLineEntry)) {
+    tempVehicleLines.push(fullLineEntry);
   }
+
+  // Si la case "Consigner aussi dans l'Historique Chronologique" est cochée
+  if (addToHistCb && addToHistCb.checked) {
+    let histDate = new Date().toISOString().split('T')[0];
+    const yearMatch = periodVal.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+      const monthMatch = periodVal.match(/\b(0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
+      if (monthMatch) {
+        histDate = `${monthMatch[2]}-${monthMatch[1].padStart(2, '0')}-01`;
+      } else {
+        histDate = `${yearMatch[1]}-09-01`;
+      }
+    }
+    const histEvent = periodVal 
+      ? `Affectation sur la ligne ${lineVal} (${periodVal}).` 
+      : `Affectation sur la ligne ${lineVal}.`;
+
+    if (!Array.isArray(tempVehicleHistory)) tempVehicleHistory = [];
+    tempVehicleHistory.push({ date: histDate, event: histEvent });
+    tempVehicleHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+    refreshVehicleFormHistory();
+  }
+
+  lineInput.value = '';
+  if (periodInput) periodInput.value = '';
+  refreshVehicleFormLines();
+  showToast(`Affectation enregistrée : ${fullLineEntry}`);
 }
 
 function removeVehicleLineByIndex(idx) {
@@ -1115,15 +1217,25 @@ function refreshVehicleFormLines() {
   if (hiddenInput) hiddenInput.value = linesList.join(', ');
 
   if (container) {
-    container.innerHTML = linesList.map((l, idx) => `
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
-        <i data-lucide="navigation" class="w-3 h-3 text-emerald-600"></i>
-        ${l}
-        <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
-          <i data-lucide="x" class="w-3 h-3"></i>
-        </button>
-      </span>
-    `).join('');
+    container.innerHTML = linesList.map((l, idx) => {
+      let lineTitle = l;
+      let periodText = '';
+      const match = l.match(/^(.*?)\s*\((.*?)\)$/);
+      if (match) {
+        lineTitle = match[1].trim();
+        periodText = match[2].trim();
+      }
+      return `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold shadow-sm">
+          <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
+          <strong class="font-bold">${lineTitle}</strong>
+          ${periodText ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-[11px] font-mono flex items-center gap-1">📅 ${periodText}</span>` : ''}
+          <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1 transition" title="Supprimer cette affectation">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </span>
+      `;
+    }).join('');
   }
 
   // Mettre à jour l'état visuel des boutons de presets
@@ -1131,7 +1243,11 @@ function refreshVehicleFormLines() {
   if (presetContainer) {
     presetContainer.querySelectorAll('button').forEach(btn => {
       const lineName = btn.innerText.trim();
-      const isChecked = linesList.includes(lineName);
+      const isChecked = linesList.some(item => {
+        if (item === lineName) return true;
+        const match = item.match(/^(.*?)\s*\((.*?)\)$/);
+        return match && match[1].trim() === lineName;
+      });
       if (isChecked) {
         btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-emerald-600 text-white border-emerald-600 shadow-sm';
         btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> ${lineName}`;
@@ -1143,6 +1259,67 @@ function refreshVehicleFormLines() {
   }
 
   lucide.createIcons();
+}
+
+function handleAddOperatorToHistory() {
+  const opInput = document.getElementById('hist-operator-name');
+  const periodInput = document.getElementById('hist-operator-period');
+  const currentOp = document.getElementById('adm-operator')?.value.trim();
+  const opVal = (opInput && opInput.value.trim()) ? opInput.value.trim() : currentOp;
+  const periodVal = periodInput ? periodInput.value.trim() : '';
+
+  if (!opVal) {
+    alert("Veuillez sélectionner ou saisir un exploitant.");
+    return;
+  }
+
+  let histDate = new Date().toISOString().split('T')[0];
+  const yearMatch = periodVal.match(/\b(20\d{2})\b/);
+  if (yearMatch) {
+    const monthMatch = periodVal.match(/\b(0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
+    if (monthMatch) {
+      histDate = `${monthMatch[2]}-${monthMatch[1].padStart(2, '0')}-01`;
+    } else {
+      histDate = `${yearMatch[1]}-01-01`;
+    }
+  }
+
+  const histEvent = periodVal 
+    ? `Exploité par ${opVal} (${periodVal}).` 
+    : `Exploité par ${opVal}.`;
+
+  if (!Array.isArray(tempVehicleHistory)) tempVehicleHistory = [];
+  tempVehicleHistory.push({ date: histDate, event: histEvent });
+  tempVehicleHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+  refreshVehicleFormHistory();
+  if (periodInput) periodInput.value = '';
+  showToast(`Historique exploitant enregistré : ${histEvent}`);
+}
+
+function insertHistoryTemplate(type) {
+  const eventInput = document.getElementById('new-history-event');
+  const dateInput = document.getElementById('new-history-date');
+  if (!eventInput) return;
+
+  const currentOp = document.getElementById('adm-operator')?.value || 'Keolis Caen la mer';
+  const currentLines = Array.isArray(tempVehicleLines) && tempVehicleLines.length > 0 ? tempVehicleLines[0] : 'Liane 1';
+
+  if (type === 'affectation') {
+    eventInput.value = `Affectation sur la ligne ${currentLines} (Septembre 2024 à Juillet 2025).`;
+    eventInput.focus();
+  } else if (type === 'exploitant') {
+    eventInput.value = `Exploité par ${currentOp} (2019 à 2024).`;
+    eventInput.focus();
+  } else if (type === 'service') {
+    eventInput.value = 'Mise en service commerciale sur le réseau Twisto.';
+    eventInput.focus();
+  } else if (type === 'livree') {
+    eventInput.value = 'Changement de livrée et pose des nouvelles girouettes LED couleur.';
+    eventInput.focus();
+  } else if (type === 'reforme') {
+    eventInput.value = 'Réforme du véhicule et retrait du service commercial.';
+    eventInput.focus();
+  }
 }
 
 function handleAddHistoryEvent() {
