@@ -432,6 +432,17 @@
             <button onclick="activeFilters.energy = 'Diesel'; document.querySelectorAll('.energy-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); renderFleet();" class="filter-btn energy-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Diesel">⛽ Diesel</button>
           </div>
 
+          <!-- Exploitant Filter -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-bold text-slate-400 mr-2 min-w-[70px]">Exploitant :</span>
+            <button onclick="filterFleetByOperator('all', this)" class="filter-btn op-btn active px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="all">Tous</button>
+            <button onclick="filterFleetByOperator('RD Caen', this)" class="filter-btn op-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="RD Caen">RD Caen la Mer</button>
+            <button onclick="filterFleetByOperator('Keolis Caen', this)" class="filter-btn op-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Keolis Caen">Keolis Caen</button>
+            <button onclick="filterFleetByOperator('Keolis Pays Normands', this)" class="filter-btn op-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Keolis Pays Normands">Keolis Pays Normands</button>
+            <button onclick="filterFleetByOperator('Transdev', this)" class="filter-btn op-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Transdev">Transdev</button>
+            <button onclick="filterFleetByOperator('Delcourt', this)" class="filter-btn op-btn px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold transition" data-value="Delcourt">Delcourt</button>
+          </div>
+
         </div>
 
       </div>

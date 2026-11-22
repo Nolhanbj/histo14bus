@@ -480,10 +480,11 @@ body {
 .naotc-plan-scroll {
   overflow-x: auto;
   overflow-y: visible;
-  padding: 24px 32px 90px; /* Espace généreux en bas pour les noms inclinés à 45° */
+  padding: 24px 32px 120px; /* Espace généreux en bas pour les noms inclinés à 45° */
   scrollbar-width: thin;
   scrollbar-color: #00875a #f1f5f9;
   position: relative;
+  min-height: 290px;
 }
 .dark .naotc-plan-scroll { scrollbar-color: #10b981 #1e293b; }
 .naotc-plan-scroll::-webkit-scrollbar { height: 6px; }
@@ -499,7 +500,7 @@ body {
   position: relative;
   min-width: max-content;
   padding-top: 175px; /* Espace généreux pour afficher toutes les lignes de correspondances superposées */
-  padding-bottom: 24px;
+  padding-bottom: 120px; /* Espace généreux pour les étiquettes inclinées à 45° */
 }
 
 /* Ligne thermomètre horizontale : calée pile au centre des cercles */
@@ -588,12 +589,14 @@ body {
   line-height: 1;
 }
 
-/* Étiquette diagonale à 45° du nom d'arrêt — style officiel thermomètre réseau (Capture 1) */
+/* Étiquette diagonale à 45° du nom d'arrêt — style officiel thermomètre réseau */
 .naotc-stop-label {
-  margin-top: 18px;
-  transform: rotate(-45deg);
-  transform-origin: 0 0;
-  font-size: .78rem;
+  position: absolute;
+  top: 32px; /* Positionné sous le cercle de 26px */
+  left: calc(50% + 4px); /* Ancré précisément sur l'axe du point */
+  transform: rotate(45deg); /* Orientation officielle fluide à 45° vers le bas à droite */
+  transform-origin: top left;
+  font-size: .80rem;
   font-weight: 700;
   color: #1e293b;
   white-space: nowrap;

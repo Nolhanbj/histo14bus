@@ -26,6 +26,7 @@ let newsAdminSubView = 'articles'; // 'articles' or 'movements'
 // Temporary state for editing vehicle/line arrays
 let tempVehicleFeatures = [];
 let tempVehicleHistory = [];
+let tempVehicleLines = [];
 let tempLineStops = [];
 
 const ACCOUNTS_STORAGE_KEY = 'histo14_admin_accounts_v2';
@@ -69,13 +70,20 @@ function getDefaultPresets() {
       "City 23", "Crossway Line GNV", "Crossway LE GNV", "Intouro", "Bluebus 6m", "Bluebus 12", "Lion's City 12 G"
     ],
     operators: [
-      "Keolis Caen la mer", "Keolis Pays Normands", "RATP Dev Caen", "TCAR / Métropole Rouen Normandie",
-      "Transdev Le Havre", "Keolis Normandie", "Transdev Normandie Interurbain", "Voyages Robert", "Affrété Twisto"
+      "RD Caen la Mer", "Keolis Caen Mobilités", "Keolis Pays Normands", "Autocars Delcourt",
+      "Transdev Normandie", "Transdev Rouen", "Transdev Le Havre", "Keolis Normandie",
+      "Voyages Robert", "Affrété Twisto"
     ],
     standardFeatures: [
       "Climatisation intégrale", "Accès PMR / Rampe UFR motorisée", "Prises de recharge USB passagers",
       "Vidéoprotection embarquée", "Écrans TFT SAEIV dynamiques", "Annonces sonores & visuelles",
       "Plancher bas intégral", "Rétroviseurs Caméras", "Wi-Fi 4G à bord", "Éclairage Full LED", "Girouettes diode couleur"
+    ],
+    standardLines: [
+      "T1", "T2", "T3", "Liane 1", "Liane 2", "Liane 3", "Liane 4",
+      "Ligne 6", "Ligne 7", "Ligne 8", "Ligne 9", "Ligne 10", "Ligne 11", "Ligne 12",
+      "Ligne 20", "Ligne 21", "Ligne 22", "Ligne 23", "Ligne 25", "Ligne 30", "Ligne 31", "Ligne 32",
+      "NVCV", "Twistoflex", "Resago", "Scolaire", "Réserve Dépôt"
     ]
   };
 }
@@ -97,7 +105,8 @@ function getPresets() {
         brands: Array.isArray(parsed.brands) && parsed.brands.length > 0 ? parsed.brands : defaults.brands,
         models: Array.isArray(parsed.models) && parsed.models.length > 0 ? parsed.models : defaults.models,
         operators: Array.isArray(parsed.operators) && parsed.operators.length > 0 ? parsed.operators : defaults.operators,
-        standardFeatures: Array.isArray(parsed.standardFeatures) && parsed.standardFeatures.length > 0 ? parsed.standardFeatures : defaults.standardFeatures
+        standardFeatures: Array.isArray(parsed.standardFeatures) && parsed.standardFeatures.length > 0 ? parsed.standardFeatures : defaults.standardFeatures,
+        standardLines: Array.isArray(parsed.standardLines) && parsed.standardLines.length > 0 ? parsed.standardLines : defaults.standardLines
       };
     } catch (e) { console.error(e); }
   }
@@ -487,6 +496,16 @@ function loadVehicleForEdit(id) {
       tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
     }
 
+    // Lines / Affectations (garanti en tableau)
+    let rawLines = target.lines;
+    if (Array.isArray(rawLines)) {
+      tempVehicleLines = rawLines.map(l => fixAdminUtf8Str(String(l).trim())).filter(Boolean);
+    } else if (typeof rawLines === 'string' && rawLines.trim()) {
+      tempVehicleLines = rawLines.split(',').map(l => fixAdminUtf8Str(l.trim())).filter(Boolean);
+    } else {
+      tempVehicleLines = [];
+    }
+
     // History (garanti en tableau d'objets)
     if (Array.isArray(target.history)) {
       tempVehicleHistory = JSON.parse(JSON.stringify(target.history));
@@ -610,6 +629,7 @@ function startNewVehicleForm() {
   editingVehicleId = null;
   tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
   tempVehicleHistory = [{ date: new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
+  tempVehicleLines = [];
   vehicleAdminSubView = 'form';
   renderAdminModalContent();
 }
@@ -695,10 +715,25 @@ function getVehicleFormHtml(editId = null, presets = null) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Exploitant / Transporteur *</label>
-            <input type="text" id="adm-operator" list="presets-operators-list" required value="${v ? v.operator || '' : 'Keolis Caen la mer'}" placeholder="Sélectionnez ou tapez l'exploitant" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" />
+            <input type="text" id="adm-operator" list="presets-operators-list" required value="${v ? v.operator || '' : 'RD Caen la Mer'}" placeholder="Sélectionnez ou tapez l'exploitant" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" />
             <datalist id="presets-operators-list">
               ${presets.operators.map(o => `<option value="${o}"></option>`).join('')}
             </datalist>
+
+            <!-- Quick Operators Buttons -->
+            <div class="mt-2.5">
+              <span class="text-[11px] font-bold text-slate-400 block mb-1">Exploitants fréquents :</span>
+              <div class="flex flex-wrap gap-1.5" id="quick-operators-container">
+                ${presets.operators.map(op => {
+                  const isSel = (v ? (v.operator || '') : 'RD Caen la Mer') === op;
+                  return `
+                    <button type="button" onclick="selectVehicleOperator('${op.replace(/'/g, "\\'")}')" class="quick-op-btn px-2 py-1 rounded-lg text-[11px] font-semibold transition border ${isSel ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}">
+                      ${op}
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -878,22 +913,62 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
       </div>
 
-      <!-- 5. AFFECTATIONS, PHOTOS ET NOTES -->
+      <!-- 5. AFFECTATIONS DE LIGNES & SERVICES -->
+      <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+        <div class="flex items-center justify-between">
+          <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> 5. Affectations de Lignes & Services
+          </h4>
+          <span class="text-xs text-emerald-600 font-bold" id="lines-count-badge">${(Array.isArray(tempVehicleLines) ? tempVehicleLines : []).length} affectation(s)</span>
+        </div>
+
+        <div>
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">Lignes & services fréquents (cliquez pour affecter/désaffecter) :</span>
+          <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700" id="preset-lines-container">
+            ${(presets.standardLines || []).map(lineName => {
+              const isChecked = Array.isArray(tempVehicleLines) && tempVehicleLines.includes(lineName);
+              return `
+                <button type="button" onclick="toggleVehicleLine('${lineName.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border ${isChecked ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}">
+                  <i data-lucide="${isChecked ? 'check' : 'plus'}" class="w-3.5 h-3.5"></i> ${lineName}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <input type="text" id="new-custom-line-input" placeholder="Ajouter une ligne personnalisée (ex: L12EX, Navette Plage, Réserve...)" class="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+          <button type="button" onclick="handleAddCustomLine()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Affecter
+          </button>
+        </div>
+
+        <div>
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Lignes actuellement affectées à ce véhicule :</span>
+          <div id="active-lines-container" class="flex flex-wrap gap-1.5 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[45px]">
+            ${(Array.isArray(tempVehicleLines) ? tempVehicleLines : []).map((l, idx) => `
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
+                <i data-lucide="navigation" class="w-3 h-3 text-emerald-600"></i> ${l}
+                <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
+                  <i data-lucide="x" class="w-3 h-3"></i>
+                </button>
+              </span>
+            `).join('')}
+          </div>
+        </div>
+
+        <input type="hidden" id="adm-lines" value="${Array.isArray(tempVehicleLines) ? tempVehicleLines.join(', ') : ''}" />
+      </div>
+
+      <!-- 6. PHOTOS ET NOTES -->
       <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
         <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-          <i data-lucide="camera" class="w-4 h-4 text-emerald-600"></i> 5. Lignes, Photo & Notes
+          <i data-lucide="camera" class="w-4 h-4 text-emerald-600"></i> 6. Photo &amp; Notes Spotteurs
         </h4>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Lignes affectées (séparées par virgules)</label>
-            <input type="text" id="adm-lines" value="${v && v.lines ? v.lines.join(', ') : 'L1, L3'}" placeholder="ex: T1, L1, L3, 10, 11EX" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Auteur de la Photo / Spotteur</label>
-            <input type="text" id="adm-author" value="${v ? v.photoAuthor || (v.photos && v.photos[0] ? v.photos[0].author : '') || 'Alexs_14' : 'Alexs_14'}" placeholder="ex: Alexs_14, Alexis, Nolhanbj" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
-          </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Auteur de la Photo / Spotteur</label>
+          <input type="text" id="adm-author" value="${v ? v.photoAuthor || (v.photos && v.photos[0] ? v.photos[0].author : '') || 'Alexs_14' : 'Alexs_14'}" placeholder="ex: Alexs_14, Alexis, Nolhanbj" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
         </div>
 
         <div>
@@ -987,6 +1062,89 @@ function refreshVehicleFormFeatures() {
   }
 }
 
+function selectVehicleOperator(op) {
+  const input = document.getElementById('adm-operator');
+  if (input) input.value = op;
+  document.querySelectorAll('.quick-op-btn').forEach(btn => {
+    if (btn.textContent.trim() === op) {
+      btn.className = 'quick-op-btn px-2 py-1 rounded-lg text-[11px] font-semibold transition border bg-emerald-600 text-white border-emerald-600 shadow-sm';
+    } else {
+      btn.className = 'quick-op-btn px-2 py-1 rounded-lg text-[11px] font-semibold transition border bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400';
+    }
+  });
+}
+
+function toggleVehicleLine(line) {
+  if (!Array.isArray(tempVehicleLines)) tempVehicleLines = [];
+  if (tempVehicleLines.includes(line)) {
+    tempVehicleLines = tempVehicleLines.filter(l => l !== line);
+  } else {
+    tempVehicleLines.push(line);
+  }
+  refreshVehicleFormLines();
+}
+
+function handleAddCustomLine() {
+  const input = document.getElementById('new-custom-line-input');
+  if (!input) return;
+  const val = input.value.trim();
+  if (val) {
+    if (!Array.isArray(tempVehicleLines)) tempVehicleLines = [];
+    if (!tempVehicleLines.includes(val)) {
+      tempVehicleLines.push(val);
+      input.value = '';
+      refreshVehicleFormLines();
+    }
+  }
+}
+
+function removeVehicleLineByIndex(idx) {
+  if (Array.isArray(tempVehicleLines) && idx >= 0 && idx < tempVehicleLines.length) {
+    tempVehicleLines.splice(idx, 1);
+    refreshVehicleFormLines();
+  }
+}
+
+function refreshVehicleFormLines() {
+  const container = document.getElementById('active-lines-container');
+  const countBadge = document.getElementById('lines-count-badge');
+  const hiddenInput = document.getElementById('adm-lines');
+  const linesList = Array.isArray(tempVehicleLines) ? tempVehicleLines : [];
+
+  if (countBadge) countBadge.textContent = `${linesList.length} affectation(s)`;
+  if (hiddenInput) hiddenInput.value = linesList.join(', ');
+
+  if (container) {
+    container.innerHTML = linesList.map((l, idx) => `
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
+        <i data-lucide="navigation" class="w-3 h-3 text-emerald-600"></i>
+        ${l}
+        <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
+          <i data-lucide="x" class="w-3 h-3"></i>
+        </button>
+      </span>
+    `).join('');
+  }
+
+  // Mettre à jour l'état visuel des boutons de presets
+  const presetContainer = document.getElementById('preset-lines-container');
+  if (presetContainer) {
+    presetContainer.querySelectorAll('button').forEach(btn => {
+      const lineName = btn.innerText.trim();
+      const isChecked = linesList.includes(lineName);
+      if (isChecked) {
+        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-emerald-600 text-white border-emerald-600 shadow-sm';
+        btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> ${lineName}`;
+      } else {
+        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400';
+        btn.innerHTML = `<i data-lucide="plus" class="w-3.5 h-3.5"></i> ${lineName}`;
+      }
+    });
+  }
+
+  lucide.createIcons();
+}
+
 function handleAddHistoryEvent() {
   const dateInput = document.getElementById('new-history-date');
   const eventInput = document.getElementById('new-history-event');
@@ -1059,7 +1217,7 @@ function handleSaveVehicle(e, editId) {
   if (operator) addPresetItem('operators', operator);
 
   const fullModelName = brand && !modelOnly.startsWith(brand) ? `${brand} ${modelOnly}` : modelOnly;
-  const lines = linesRaw ? linesRaw.split(',').map(l => l.trim()).filter(l => l.length > 0) : [];
+  const lines = (Array.isArray(tempVehicleLines) && tempVehicleLines.length > 0) ? [...tempVehicleLines] : (linesRaw ? linesRaw.split(',').map(l => l.trim()).filter(l => l.length > 0) : []);
 
   const updatedVehicleData = {
     number: num,
@@ -2273,6 +2431,25 @@ function getPresetsTabContentHtml(presets) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700">
               ${o}
               <button type="button" onclick="deletePresetItem('operators', '${o}')" class="text-slate-400 hover:text-red-500 transition"><i data-lucide="x" class="w-3 h-3"></i></button>
+            </span>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Section 4: Lignes & Affectations Fréquentes -->
+      <div class="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+        <h5 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Lignes & Affectations Fréquentes (${(presets.standardLines || []).length})</h5>
+        <div class="flex gap-2">
+          <input type="text" id="new-preset-line-input" placeholder="Ajouter une ligne (ex: T1, Liane 1, NVCV...)" class="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+          <button type="button" onclick="handleAddPreset('standardLines', 'new-preset-line-input')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Ajouter
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+          ${(presets.standardLines || []).map(l => `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+              ${l}
+              <button type="button" onclick="deletePresetItem('standardLines', '${l}')" class="text-slate-400 hover:text-red-500 transition"><i data-lucide="x" class="w-3 h-3"></i></button>
             </span>
           `).join('')}
         </div>

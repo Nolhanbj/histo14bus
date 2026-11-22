@@ -10,6 +10,7 @@ let activeFilters = {
   type: 'all',
   energy: 'all',
   network: 'all',
+  operator: 'all',
   series: 'all'
 };
 let fleetSort = 'asc'; // 'asc', 'desc', 'year-desc', 'year-asc'
@@ -267,6 +268,13 @@ function getFilteredFleet() {
     // Energy filter
     if (activeFilters.energy !== 'all') {
       if (!vehicle.energy || !vehicle.energy.toLowerCase().includes(activeFilters.energy.toLowerCase())) {
+        return false;
+      }
+    }
+
+    // Operator filter
+    if (activeFilters.operator && activeFilters.operator !== 'all') {
+      if (!vehicle.operator || !vehicle.operator.toLowerCase().includes(activeFilters.operator.toLowerCase())) {
         return false;
       }
     }
@@ -825,16 +833,21 @@ function openVehicleModal(id) {
         </div>
       </div>
 
-      <!-- 2. Assigned Lines -->
+      <!-- 2. Assigned Lines & Operator Space -->
       ${vehicle.lines && vehicle.lines.length > 0 ? `
-        <div>
-          <h3 class="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-            <i data-lucide="route" class="w-5 h-5 text-emerald-600"></i> Lignes Habituellement Affectées
-          </h3>
+        <div class="p-4 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i data-lucide="route" class="w-5 h-5 text-emerald-600"></i> Affectations & Lignes du Réseau
+            </h3>
+            <span class="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+              ${vehicle.lines.length} affectation(s)
+            </span>
+          </div>
           <div class="flex flex-wrap gap-2">
             ${vehicle.lines.map(l => `
-              <span class="px-3.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold rounded-xl text-sm shadow-sm flex items-center gap-1">
-                <i data-lucide="navigation" class="w-3.5 h-3.5"></i> ${l}
+              <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5">
+                <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600"></i> ${l}
               </span>
             `).join('')}
           </div>
@@ -929,6 +942,13 @@ function shareVehicle(number, model) {
   }
 }
 
+function filterFleetByOperator(operator, btn) {
+  activeFilters.operator = operator;
+  document.querySelectorAll('.op-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderFleet();
+}
+
 function resetFleetFilters() {
   activeFilters = {
     search: '',
@@ -936,6 +956,7 @@ function resetFleetFilters() {
     type: 'all',
     energy: 'all',
     network: 'all',
+    operator: 'all',
     series: 'all'
   };
 
