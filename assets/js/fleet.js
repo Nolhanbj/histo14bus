@@ -716,6 +716,7 @@ function openVehicleModal(id) {
 
   const isTram = vehicle.type === 'Tramway';
   const isActif = vehicle.status === 'Actuel';
+  const assignments = parseVehicleAssignments(vehicle);
 
   modalContent.innerHTML = `
     <!-- Modal Header with Image -->
@@ -838,31 +839,127 @@ function openVehicleModal(id) {
         </div>
       </div>
 
-      <!-- 2. Assigned Lines & Operator Space -->
-      ${vehicle.lines && vehicle.lines.length > 0 ? `
-        <div class="p-4 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <i data-lucide="route" class="w-5 h-5 text-emerald-600"></i> Affectations & Lignes du Réseau
+      <!-- 2. BLOC VERT : Situation & Affectations Actuelles (Exploitant, Dépôt & Lignes) -->
+      <div class="p-4 sm:p-5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-2xl border-2 border-emerald-300 dark:border-emerald-800 shadow-sm space-y-3.5">
+        <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-emerald-200 dark:border-emerald-800/60">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h3 class="text-base font-extrabold text-emerald-950 dark:text-emerald-200 flex items-center gap-2">
+              <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i> Affectation & Situation Actuelle
             </h3>
-            <span class="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-              ${vehicle.lines.length} affectation(s)
-            </span>
           </div>
-          <div class="flex flex-wrap gap-2">
-            ${vehicle.lines.map(l => {
-              const match = l.match(/^(.*?)\s*\((.*?)\)$/);
-              const lineTitle = match ? match[1].trim() : l;
-              const periodText = match ? match[2].trim() : '';
-              return `
+          <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-3 py-1 rounded-full border border-emerald-300 dark:border-emerald-700">
+            En service actif
+          </span>
+        </div>
+
+        <!-- Exploitant Actuel & Dépôt Actuel -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl shadow-xs">
+            <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0">
+              <i data-lucide="building-2" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Exploitant Actuel</span>
+              <span class="text-sm font-extrabold text-slate-900 dark:text-white">${vehicle.operator || 'Non renseigné'}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl shadow-xs">
+            <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0">
+              <i data-lucide="map-pin" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Dépôt d'attache Actuel</span>
+              <span class="text-sm font-extrabold text-slate-900 dark:text-white">${vehicle.depot || 'Non renseigné'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lignes Actuelles -->
+        <div>
+          <span class="text-xs font-bold text-emerald-950 dark:text-emerald-200 block mb-2 flex items-center gap-1.5">
+            <i data-lucide="navigation" class="w-4 h-4 text-emerald-600"></i> Lignes & Services actuellement affectés :
+          </span>
+          ${assignments.currentLines.length > 0 ? `
+            <div class="flex flex-wrap gap-2">
+              ${assignments.currentLines.map(l => `
                 <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5 flex-wrap">
                   <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
-                  <span>${lineTitle}</span>
-                  ${periodText ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-xs font-semibold font-mono flex items-center gap-1">📅 ${periodText}</span>` : ''}
+                  <span>${l.name}</span>
+                  ${l.period ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-xs font-semibold font-mono flex items-center gap-1">📅 ${l.period}</span>` : ''}
                 </span>
-              `;
-            }).join('')}
+              `).join('')}
+            </div>
+          ` : `
+            <span class="text-xs text-slate-500 italic">Aucune ligne spécifique actuellement affectée (ou véhicule de réserve).</span>
+          `}
+        </div>
+      </div>
+
+      <!-- 2.5. BLOC ROUGE : Historique des Affectations, Exploitants & Dépôts -->
+      ${(assignments.pastLines.length > 0 || assignments.pastOperators.length > 0 || assignments.pastDepots.length > 0) ? `
+        <div class="p-4 sm:p-5 bg-rose-50/80 dark:bg-rose-950/40 rounded-2xl border-2 border-rose-300 dark:border-rose-900/60 shadow-sm space-y-3.5">
+          <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-rose-200 dark:border-rose-900/60">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+              <h3 class="text-base font-extrabold text-rose-950 dark:text-rose-200 flex items-center gap-2">
+                <i data-lucide="history" class="w-5 h-5 text-rose-600"></i> Historique : Anciennes Affectations, Exploitants & Dépôts
+              </h3>
+            </div>
+            <span class="text-xs font-bold text-rose-800 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/60 px-3 py-1 rounded-full border border-rose-300 dark:border-rose-800">
+              ${assignments.pastLines.length + assignments.pastOperators.length + assignments.pastDepots.length} antécédent(s)
+            </span>
           </div>
+
+          <!-- Anciens Exploitants & Anciens Dépôts -->
+          ${(assignments.pastOperators.length > 0 || assignments.pastDepots.length > 0) ? `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              ${assignments.pastOperators.map(o => `
+                <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 rounded-xl shadow-xs">
+                  <div class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="building" class="w-4 h-4"></i>
+                  </div>
+                  <div class="overflow-hidden">
+                    <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Ancien Exploitant</span>
+                    <span class="text-sm font-extrabold text-slate-900 dark:text-white block truncate">${o.name}</span>
+                    ${o.period ? `<span class="text-xs text-rose-600 dark:text-rose-400 font-mono font-semibold flex items-center gap-1 mt-0.5">📅 ${o.period}</span>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+
+              ${assignments.pastDepots.map(d => `
+                <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 rounded-xl shadow-xs">
+                  <div class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                  </div>
+                  <div class="overflow-hidden">
+                    <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Ancien Dépôt d'attache</span>
+                    <span class="text-sm font-extrabold text-slate-900 dark:text-white block truncate">${d.name}</span>
+                    ${d.period ? `<span class="text-xs text-rose-600 dark:text-rose-400 font-mono font-semibold flex items-center gap-1 mt-0.5">📅 ${d.period}</span>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <!-- Anciennes Affectations de Lignes -->
+          ${assignments.pastLines.length > 0 ? `
+            <div>
+              <span class="text-xs font-bold text-rose-950 dark:text-rose-200 block mb-2 flex items-center gap-1.5">
+                <i data-lucide="route" class="w-4 h-4 text-rose-600"></i> Anciennes affectations de lignes :
+              </span>
+              <div class="flex flex-wrap gap-2">
+                ${assignments.pastLines.map(l => `
+                  <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5 flex-wrap">
+                    <i data-lucide="navigation" class="w-3.5 h-3.5 text-rose-500 flex-shrink-0"></i>
+                    <span>${l.name}</span>
+                    ${l.period ? `<span class="px-2 py-0.5 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 rounded-md text-xs font-semibold font-mono flex items-center gap-1">📅 ${l.period}</span>` : ''}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
         </div>
       ` : ''}
 
@@ -998,6 +1095,66 @@ function resetFleetFilters() {
   }
 
   renderFleet();
+}
+
+function parseVehicleAssignments(vehicle) {
+  const currentLines = [];
+  const pastLines = [];
+  const pastOperators = [];
+  const pastDepots = [];
+
+  if (Array.isArray(vehicle.lines)) {
+    vehicle.lines.forEach(l => {
+      if (!l) return;
+      const cleanL = l.trim();
+      const isExplicitPast = cleanL.startsWith('[Historique]') || cleanL.startsWith('[Ancien]') || cleanL.startsWith('(Ancien)');
+      const withoutTag = cleanL.replace(/^\[(Historique|Ancien)\]\s*/i, '').replace(/^\(Ancien\)\s*/i, '');
+      const match = withoutTag.match(/^(.*?)\s*\((.*?)\)$/);
+      const name = match ? match[1].trim() : withoutTag;
+      const period = match ? match[2].trim() : '';
+
+      // Detection heuristic: range with end date (e.g. "Septembre 2025 - Janvier 2026", "2019 à 2024", "2024 - 2025")
+      const isRangeWithEnd = /(?:[\-–—]|(?:jusqu|au|à))\s*(?:\d{4}|(?:janv|févr|fevr|mars|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec))/i.test(period);
+      const isCurrentPeriod = /^(?:depuis|actuel|en cours)/i.test(period);
+
+      if (isExplicitPast || (isRangeWithEnd && !isCurrentPeriod)) {
+        pastLines.push({ name, period, raw: cleanL });
+      } else {
+        currentLines.push({ name, period, raw: cleanL });
+      }
+    });
+  }
+
+  if (Array.isArray(vehicle.history)) {
+    vehicle.history.forEach(h => {
+      const evt = (h.event || '').trim();
+      // Operators
+      const opMatch = evt.match(/^(?:Exploité par|Ancien exploitant\s*:?|Exploitant\s*:?)\s*([^()]+?)(?:\s*\((.*?)\))?\.?$/i);
+      if (opMatch) {
+        const opName = opMatch[1].trim();
+        const opPeriod = opMatch[2] ? opMatch[2].trim() : '';
+        if (opName && (!vehicle.operator || opName.toLowerCase() !== vehicle.operator.toLowerCase() || opPeriod)) {
+          if (!pastOperators.some(o => o.name.toLowerCase() === opName.toLowerCase() && o.period === opPeriod)) {
+            pastOperators.push({ name: opName, period: opPeriod, date: h.date });
+          }
+        }
+      }
+
+      // Depots
+      const depotMatch = evt.match(/^(?:Dépôt|Attribué au dépôt|Ancien dépôt\s*:?|Dépôt d'attache\s*:?)\s*([^()]+?)(?:\s*\((.*?)\))?\.?$/i);
+      if (depotMatch) {
+        const depotName = depotMatch[1].trim();
+        const depotPeriod = depotMatch[2] ? depotMatch[2].trim() : '';
+        if (depotName && (!vehicle.depot || depotName.toLowerCase() !== vehicle.depot.toLowerCase() || depotPeriod)) {
+          if (!pastDepots.some(d => d.name.toLowerCase() === depotName.toLowerCase() && d.period === depotPeriod)) {
+            pastDepots.push({ name: depotName, period: depotPeriod, date: h.date });
+          }
+        }
+      }
+    });
+  }
+
+  return { currentLines, pastLines, pastOperators, pastDepots };
 }
 
 function formatDate(dateStr) {
