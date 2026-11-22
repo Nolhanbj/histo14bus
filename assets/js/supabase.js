@@ -131,7 +131,17 @@ async function saveVehicleToSupabase(vehicle) {
   const sb = getSupabase();
   if (!sb || !vehicle) return false;
   try {
-    const payload = { ...vehicle, updated_at: new Date().toISOString() };
+    // On n'envoie QUE les colonnes qui existent dans la table Supabase
+    // (évite l'erreur "Could not find column X in schema cache")
+    const payload = {
+      updated_at: new Date().toISOString()
+    };
+    const ALLOWED = [
+      'id','number','brand','model','type','gabarit','network','operator','depot',
+      'energy','status','plate','registration','vin','deliveryDate','inServiceDate','serviceDate',
+      'capacity','doors','length','livery','lines','equipments','features','photo','history','notes'
+    ];
+    ALLOWED.forEach(k => { if (vehicle[k] !== undefined) payload[k] = vehicle[k]; });
     const { error } = await sb.from('vehicles').upsert(payload, { onConflict: 'id' });
     if (error) {
       console.error('[Supabase] saveVehicle error:', error);
@@ -314,17 +324,45 @@ async function transferAllDataToSupabase(onProgress) {
 
   if (typeof onProgress === 'function') onProgress("Transfert de la flotte de bus...", 10);
 
+  // Purge du cache localStorage pour repartir de données propres
+  localStorage.removeItem('histo14_fleet_data');
+  localStorage.removeItem('histo14_lines_data');
+
   // 1. Transfert Véhicules (par lots de 50 pour éviter les timeouts)
-  if (typeof fleetData !== 'undefined' && Array.isArray(fleetData) && fleetData.length > 0) {
+  // On recharge fleet.json propre pour éviter les champs parasites du cache
+  let vehiclesToTransfer = [];
+  try {
+    const r = await fetch('data/fleet.json?t=' + Date.now());
+    vehiclesToTransfer = await r.json();
+  } catch(e) {
+    vehiclesToTransfer = (typeof fleetData !== 'undefined' && Array.isArray(fleetData)) ? fleetData : [];
+  }
+
+  if (vehiclesToTransfer.length > 0) {
     const chunkSize = 50;
-    for (let i = 0; i < fleetData.length; i += chunkSize) {
-      const chunk = fleetData.slice(i, i + chunkSize);
+    // Colonnes EXACTES de la table Supabase (schéma SQL)
+    const VEHICLE_COLS = [
+      'id','number','brand','model','type','gabarit','network','operator','depot',
+      'energy','status','plate','registration','vin','deliveryDate','inServiceDate','serviceDate',
+      'capacity','doors','length','livery','lines','equipments','features','photo','history','notes','updated_at'
+    ];
+    const cleanVehicle = v => {
+      const c = {};
+      VEHICLE_COLS.forEach(k => {
+        if (v[k] !== undefined) c[k] = v[k];
+      });
+      // Mapper features → equipments si equipments absent
+      if (!c.equipments && v.features) c.equipments = v.features;
+      return c;
+    };
+    for (let i = 0; i < vehiclesToTransfer.length; i += chunkSize) {
+      const chunk = vehiclesToTransfer.slice(i, i + chunkSize).map(cleanVehicle);
       const { error } = await sb.from('vehicles').upsert(chunk, { onConflict: 'id' });
       if (error) throw new Error("Erreur insertion flotte: " + error.message);
       report.vehicles += chunk.length;
       if (typeof onProgress === 'function') {
-        const pct = 10 + Math.round((i / fleetData.length) * 40);
-        onProgress(`Flotte: ${report.vehicles}/${fleetData.length} véhicules...`, pct);
+        const pct = 10 + Math.round((i / vehiclesToTransfer.length) * 40);
+        onProgress(`Flotte: ${report.vehicles}/${vehiclesToTransfer.length} véhicules...`, pct);
       }
     }
   }

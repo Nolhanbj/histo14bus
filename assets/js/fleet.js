@@ -13,7 +13,7 @@ let activeFilters = {
   series: 'all'
 };
 let fleetSort = 'asc'; // 'asc', 'desc', 'year-desc', 'year-asc'
-let viewMode = 'naotc'; // 'naotc', 'grid', or 'table'
+let viewMode = 'table'; // 'naotc', 'grid', or 'table'
 let currentVehicleIndex = -1;
 
 async function initFleet() {
@@ -61,10 +61,50 @@ async function initFleet() {
     }
 
 
+    function fixFleetUtf8(list) {
+      if (!Array.isArray(list)) return [];
+
+      // Corrige une chaîne UTF-8 corrompue (double-encodage Latin-1 → UTF-8)
+      function fixStr(s) {
+        if (!s || typeof s !== 'string') return s;
+        return s
+          .replace(/Ã©/g, 'é').replace(/Ã¨/g, 'è').replace(/Ã‡/g, 'Ç').replace(/Ã§/g, 'ç')
+          .replace(/Ã /g, 'à').replace(/Ã¢/g, 'â').replace(/Ã®/g, 'î').replace(/Ã´/g, 'ô')
+          .replace(/Ã»/g, 'û').replace(/Ã«/g, 'ë').replace(/Ã¯/g, 'ï').replace(/Ã¼/g, 'ü')
+          .replace(/Ã‰/g, 'É').replace(/Ã€/g, 'À').replace(/Ã‚/g, 'Â').replace(/Ãœ/g, 'Ü')
+          .replace(/â™¿/g, '♿').replace(/â€™/g, "'").replace(/â€"/g, '–').replace(/â€œ/g, '"')
+          .replace(/â€/g, '"').replace(/â€¢/g, '•').replace(/Â°/g, '°').replace(/Â«/g, '«')
+          .replace(/Â»/g, '»');
+      }
+
+      return list.map(v => {
+        if (!v) return v;
+        // Énergie
+        if (v.energy && (v.energy.includes('Ã') || v.energy.toLowerCase().includes('lectrique'))) {
+          v.energy = 'Électrique';
+        }
+        // Marque
+        if (v.brand && v.brand.includes('Bollor')) v.brand = 'Bolloré';
+        if (v.brand) v.brand = fixStr(v.brand);
+        // Modèle
+        if (v.model) v.model = fixStr(v.model);
+        // Exploitant
+        if (v.operator) v.operator = fixStr(v.operator);
+        // Équipements / features (tableaux de chaînes)
+        if (Array.isArray(v.features)) v.features = v.features.map(fixStr);
+        if (Array.isArray(v.equipments)) v.equipments = v.equipments.map(fixStr);
+        // Notes / remarques textuelles
+        if (v.notes) v.notes = fixStr(v.notes);
+        if (v.description) v.description = fixStr(v.description);
+        return v;
+      });
+    }
+    fleetData = fixFleetUtf8(fleetData);
+
     updateFleetStats();
     updateNetworkCardCounts();
     populateSeriesDropdown();
-    renderFleet();
+    setFleetViewMode('table'); // Vue par défaut : N° de Parc (tableau)
 
     // Check URL parameters for direct vehicle deep-linking (e.g. ?bus=5220 or ?network=Twisto)
     const urlParams = new URLSearchParams(window.location.search);
@@ -593,9 +633,11 @@ function renderVehicleTable(vehicles) {
         <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60">
           ${vehicles.map(v => `
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition cursor-pointer" onclick="openVehicleModal('${v.id}')">
-              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full ${v.status === 'Actuel' ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-                N° ${v.number}
+              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${v.status === 'Actuel' ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+                  <span class="whitespace-nowrap">N° ${v.number}</span>
+                </div>
               </td>
               <td class="py-3.5 px-4 font-bold text-xs text-emerald-600 dark:text-emerald-400">${v.network || 'Twisto'}</td>
               <td class="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">${v.model}</td>

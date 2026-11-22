@@ -81,11 +81,26 @@ function getDefaultPresets() {
 }
 
 function getPresets() {
+  const defaults = getDefaultPresets();
   const saved = localStorage.getItem(PRESETS_STORAGE_KEY);
   if (saved) {
-    try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    try {
+      const parsed = JSON.parse(saved);
+      // Détecte une corruption UTF-8 (double-encodage Latin-1) dans le cache
+      if (JSON.stringify(parsed).includes('Ã')) {
+        console.warn('[Admin] Presets corrompus (UTF-8) détectés → reset vers les valeurs par défaut');
+        localStorage.removeItem(PRESETS_STORAGE_KEY);
+        localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(defaults));
+        return defaults;
+      }
+      return {
+        brands: Array.isArray(parsed.brands) && parsed.brands.length > 0 ? parsed.brands : defaults.brands,
+        models: Array.isArray(parsed.models) && parsed.models.length > 0 ? parsed.models : defaults.models,
+        operators: Array.isArray(parsed.operators) && parsed.operators.length > 0 ? parsed.operators : defaults.operators,
+        standardFeatures: Array.isArray(parsed.standardFeatures) && parsed.standardFeatures.length > 0 ? parsed.standardFeatures : defaults.standardFeatures
+      };
+    } catch (e) { console.error(e); }
   }
-  const defaults = getDefaultPresets();
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(defaults));
   return defaults;
 }
@@ -402,7 +417,7 @@ function renderAdminModalContent() {
           <i data-lucide="database" class="w-4 h-4"></i> Sauvegardes / JSON
         </button>
         <button type="button" onclick="switchAdminTab('site')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'site' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="settings" class="w-4 h-4"></i> Site &amp; Navigation
+          <i data-lucide="file-text" class="w-4 h-4"></i> Textes du Site
         </button>
         <button type="button" onclick="switchAdminTab('appearance')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'appearance' ? 'bg-violet-600 text-white shadow-md' : 'bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 hover:bg-violet-100 border border-violet-300/40'}">
           <i data-lucide="palette" class="w-4 h-4"></i> Apparence
@@ -447,11 +462,41 @@ function getAdminTabContentHtml(presets, accounts) {
    TAB 1: VEHICLES & FLEET MANAGEMENT (LISTE & FORMULAIRE COMPLET A à Z)
    ========================================================================= */
 
+// Corrige les caractères UTF-8 corrompus dans une chaîne (double-encodage Latin-1)
+function fixAdminUtf8Str(s) {
+  if (!s || typeof s !== 'string') return s;
+  return s
+    .replace(/Ã©/g,'é').replace(/Ã¨/g,'è').replace(/Ã‡/g,'Ç').replace(/Ã§/g,'ç')
+    .replace(/Ã /g,'à').replace(/Ã¢/g,'â').replace(/Ã®/g,'î').replace(/Ã´/g,'ô')
+    .replace(/Ã»/g,'û').replace(/Ã«/g,'ë').replace(/Ã¯/g,'ï').replace(/Ã¼/g,'ü')
+    .replace(/Ã‰/g,'É').replace(/Ã€/g,'À').replace(/Ã‚/g,'Â')
+    .replace(/â™¿/g,'♿').replace(/â€™/g,"'").replace(/â€"/g,'–')
+    .replace(/Â°/g,'°').replace(/Â«/g,'«').replace(/Â»/g,'»');
+}
+
 function loadVehicleForEdit(id) {
   const target = fleetData.find(v => v.id === id || v.number === id);
   if (target) {
-    tempVehicleFeatures = target.features || target.equipments ? [...(target.features || target.equipments)] : [];
-    tempVehicleHistory = target.history ? JSON.parse(JSON.stringify(target.history)) : [];
+    // Features / Equipments (garanti en tableau, corrigé UTF-8)
+    let rawFeat = target.features || target.equipments;
+    if (Array.isArray(rawFeat)) {
+      tempVehicleFeatures = rawFeat.map(fixAdminUtf8Str);
+    } else if (typeof rawFeat === 'string' && rawFeat.trim()) {
+      tempVehicleFeatures = rawFeat.split(',').map(f => fixAdminUtf8Str(f.trim())).filter(Boolean);
+    } else {
+      tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
+    }
+
+    // History (garanti en tableau d'objets)
+    if (Array.isArray(target.history)) {
+      tempVehicleHistory = JSON.parse(JSON.stringify(target.history));
+    } else if (target.history && typeof target.history === 'object') {
+      tempVehicleHistory = [JSON.parse(JSON.stringify(target.history))];
+    } else if (typeof target.history === 'string' && target.history.trim()) {
+      tempVehicleHistory = [{ date: target.serviceDate || target.deliveryDate || '2024-01-01', event: target.history }];
+    } else {
+      tempVehicleHistory = [{ date: target.serviceDate || target.deliveryDate || new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
+    }
   } else {
     tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
     tempVehicleHistory = [{ date: new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
@@ -508,6 +553,12 @@ function getVehicleListHtml() {
   `;
 }
 
+function cleanVehicleEnergy(e) {
+  if (!e) return '-';
+  if (e.includes('Ã') || e.toLowerCase().includes('lectrique')) return 'Électrique';
+  return e;
+}
+
 function renderAdminVehicleRow(v) {
   return `
     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
@@ -518,7 +569,7 @@ function renderAdminVehicleRow(v) {
       <td class="py-2.5 px-3 font-semibold text-emerald-600 dark:text-emerald-400">${v.network || 'Twisto'}</td>
       <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">${v.model}</td>
       <td class="py-2.5 px-3 font-mono">${v.plate || v.registration || '-'}</td>
-      <td class="py-2.5 px-3">${v.energy || '-'}</td>
+      <td class="py-2.5 px-3 font-semibold">${cleanVehicleEnergy(v.energy)}</td>
       <td class="py-2.5 px-3">
         <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${v.status === 'Actuel' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'}">
           ${v.status || 'Actuel'}
@@ -564,10 +615,13 @@ function startNewVehicleForm() {
 }
 
 function startEditVehicle(id) {
+  activeAdminTab = 'vehicle';
   editingVehicleId = id;
   loadVehicleForEdit(id);
   vehicleAdminSubView = 'form';
   renderAdminModalContent();
+  const container = document.getElementById('admin-form-container');
+  if (container) container.scrollTop = 0;
 }
 
 function getVehicleFormHtml(editId = null, presets = null) {
@@ -776,10 +830,10 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
 
         <div id="active-features-container" class="flex flex-wrap gap-1.5 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[45px]">
-          ${tempVehicleFeatures.map(f => `
+          ${(Array.isArray(tempVehicleFeatures) ? tempVehicleFeatures : []).map((f, idx) => `
             <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
               <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i> ${f}
-              <button type="button" onclick="removeVehicleFeature('${f}')" class="text-slate-400 hover:text-red-500 ml-1">
+              <button type="button" onclick="removeVehicleFeatureByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
                 <i data-lucide="x" class="w-3 h-3"></i>
               </button>
             </span>
@@ -810,11 +864,11 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
 
         <div id="active-history-container" class="space-y-2 max-h-48 overflow-y-auto">
-          ${tempVehicleHistory.map((h, idx) => `
+          ${(Array.isArray(tempVehicleHistory) ? tempVehicleHistory : []).map((h, idx) => `
             <div class="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start justify-between gap-3 text-xs">
               <div>
-                <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h.date)}</span>
-                <span class="text-slate-700 dark:text-slate-300">${h.event}</span>
+                <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h ? h.date : '')}</span>
+                <span class="text-slate-700 dark:text-slate-300">${h ? h.event || '' : ''}</span>
               </div>
               <button type="button" onclick="removeVehicleHistory(${idx})" class="p-1 text-slate-400 hover:text-red-500 transition" title="Supprimer">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -907,17 +961,24 @@ function removeVehicleFeature(feature) {
   refreshVehicleFormFeatures();
 }
 
+function removeVehicleFeatureByIndex(idx) {
+  if (idx >= 0 && idx < tempVehicleFeatures.length) {
+    tempVehicleFeatures.splice(idx, 1);
+    refreshVehicleFormFeatures();
+  }
+}
+
 function refreshVehicleFormFeatures() {
   const container = document.getElementById('active-features-container');
   const countBadge = document.getElementById('features-count-badge');
-  if (countBadge) countBadge.textContent = `${tempVehicleFeatures.length} équipement(s)`;
+  if (countBadge) countBadge.textContent = `${(Array.isArray(tempVehicleFeatures) ? tempVehicleFeatures : []).length} équipement(s)`;
 
   if (container) {
-    container.innerHTML = tempVehicleFeatures.map(f => `
+    container.innerHTML = (Array.isArray(tempVehicleFeatures) ? tempVehicleFeatures : []).map((f, idx) => `
       <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
         <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>
         ${f}
-        <button type="button" onclick="removeVehicleFeature('${f}')" class="text-slate-400 hover:text-red-500 ml-1">
+        <button type="button" onclick="removeVehicleFeatureByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
           <i data-lucide="x" class="w-3 h-3"></i>
         </button>
       </span>
@@ -950,14 +1011,14 @@ function removeVehicleHistory(index) {
 function refreshVehicleFormHistory() {
   const container = document.getElementById('active-history-container');
   const countBadge = document.getElementById('history-count-badge');
-  if (countBadge) countBadge.textContent = `${tempVehicleHistory.length} événement(s)`;
+  if (countBadge) countBadge.textContent = `${(Array.isArray(tempVehicleHistory) ? tempVehicleHistory : []).length} événement(s)`;
 
   if (container) {
-    container.innerHTML = tempVehicleHistory.map((h, idx) => `
+    container.innerHTML = (Array.isArray(tempVehicleHistory) ? tempVehicleHistory : []).map((h, idx) => `
       <div class="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start justify-between gap-3 text-xs">
         <div>
-          <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h.date)}</span>
-          <span class="text-slate-700 dark:text-slate-300">${h.event}</span>
+          <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h ? h.date : '')}</span>
+          <span class="text-slate-700 dark:text-slate-300">${h ? h.event || '' : ''}</span>
         </div>
         <button type="button" onclick="removeVehicleHistory(${idx})" class="p-1 text-slate-400 hover:text-red-500 transition" title="Supprimer">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -1009,10 +1070,9 @@ function handleSaveVehicle(e, editId) {
     energy: energy,
     status: status,
     livery: livery,
-    registration: reg,
     plate: reg,
+    registration: reg,
     vin: vin,
-    chassis: vin,
     deliveryDate: deliveryDate,
     serviceDate: serviceDate,
     inServiceDate: serviceDate,
@@ -1022,11 +1082,10 @@ function handleSaveVehicle(e, editId) {
     capacity: capacity,
     length: length,
     doors: doors,
-    features: [...tempVehicleFeatures],
     equipments: [...tempVehicleFeatures],
+    features: [...tempVehicleFeatures],
     history: tempVehicleHistory.length > 0 ? [...tempVehicleHistory] : [{ date: serviceDate, event: `Mise en service sur le réseau ${network}.` }],
     photo: photo,
-    photoAuthor: author,
     notes: notes
   };
 
@@ -1091,7 +1150,13 @@ function handleDeleteVehicle(vehicleId) {
 function loadLineForEdit(id) {
   const line = linesData.find(l => l.id === id || l.number === id);
   if (line && line.stops) {
-    tempLineStops = [...line.stops];
+    if (Array.isArray(line.stops)) {
+      tempLineStops = [...line.stops];
+    } else if (typeof line.stops === 'string') {
+      tempLineStops = line.stops.split(/,|\n/).map(s => s.trim()).filter(Boolean);
+    } else {
+      tempLineStops = ["Terminus A", "Arrêt 1", "Arrêt 2", "Terminus B"];
+    }
   } else {
     tempLineStops = ["Terminus A", "Arrêt 1", "Arrêt 2", "Terminus B"];
   }
@@ -1105,6 +1170,72 @@ function getLineTabContentHtml() {
   }
 }
 
+let lineSortColumn = null;
+let lineSortDirection = 'asc';
+
+function handleSortLinesBy(column) {
+  if (lineSortColumn === column) {
+    lineSortDirection = lineSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    lineSortColumn = column;
+    lineSortDirection = 'asc';
+  }
+
+  linesData.sort((a, b) => {
+    let valA = '', valB = '';
+    if (column === 'number') {
+      const scoreA = typeof getLineOrderScore === 'function' ? getLineOrderScore(a) : 0;
+      const scoreB = typeof getLineOrderScore === 'function' ? getLineOrderScore(b) : 0;
+      return lineSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA;
+    } else if (column === 'name') {
+      valA = String(a.name || '');
+      valB = String(b.name || '');
+    } else if (column === 'category') {
+      valA = String(a.category || '');
+      valB = String(b.category || '');
+    } else if (column === 'stops') {
+      valA = (a.stops ? a.stops.length : a.stopsCount) || 0;
+      valB = (b.stops ? b.stops.length : b.stopsCount) || 0;
+      return lineSortDirection === 'asc' ? valA - valB : valB - valA;
+    } else if (column === 'date') {
+      valA = String(a.planDate || '');
+      valB = String(b.planDate || '');
+    }
+    const cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true });
+    return lineSortDirection === 'asc' ? cmp : -cmp;
+  });
+
+  localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
+  localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
+  renderAdminModalContent();
+  if (typeof renderLines === 'function') renderLines();
+}
+
+function handleSortLinesOfficial() {
+  if (typeof sortLinesOfficial === 'function') {
+    linesData = sortLinesOfficial(linesData);
+  } else {
+    linesData.sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+  }
+  lineSortColumn = null;
+  localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
+  localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
+  renderAdminModalContent();
+  if (typeof renderLines === 'function') renderLines();
+  if (typeof showToast === 'function') showToast("Lignes ordonnées avec succès selon le plan officiel du réseau Twisto (T1, 1, 2... 30...) !");
+}
+
+function handleMoveLine(idx, dir) {
+  const targetIdx = idx + dir;
+  if (targetIdx < 0 || targetIdx >= linesData.length) return;
+  const item = linesData.splice(idx, 1)[0];
+  linesData.splice(targetIdx, 0, item);
+  localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
+  localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
+  renderAdminModalContent();
+  if (typeof renderLines === 'function') renderLines();
+}
+
 function getLineListHtml() {
   return `
     <div class="space-y-4">
@@ -1113,8 +1244,11 @@ function getLineListHtml() {
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
           <input type="text" id="adm-line-search" oninput="filterAdminLineList(this.value)" placeholder="Rechercher une ligne (ex: T1, 1, 12, Express)..." class="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-medium" />
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
           <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">${linesData.length} ligne(s)</span>
+          <button type="button" onclick="handleSortLinesOfficial()" class="px-3 py-2 bg-emerald-100 dark:bg-emerald-950/80 hover:bg-emerald-200 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm whitespace-nowrap" title="Rétablir l'ordre officiel du réseau : Tram T1-T3, Lianes 1-4, Bus 5-37, etc.">
+            <i data-lucide="arrow-down-up" class="w-3.5 h-3.5"></i> Trier Ordre Réseau (T1.. 1.. 30..)
+          </button>
           <button type="button" onclick="startNewLineForm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm whitespace-nowrap">
             <i data-lucide="plus-circle" class="w-4 h-4"></i> + Nouvelle Ligne
           </button>
@@ -1125,17 +1259,27 @@ function getLineListHtml() {
         <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
           <thead class="bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
             <tr>
-              <th class="py-2.5 px-3">Indice</th>
-              <th class="py-2.5 px-3">Nom de la Ligne</th>
-              <th class="py-2.5 px-3">Catégorie</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('number')" title="Cliquer pour trier">
+                Indice ↕
+              </th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('name')" title="Cliquer pour trier">
+                Nom de la Ligne ↕
+              </th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('category')" title="Cliquer pour trier">
+                Catégorie ↕
+              </th>
               <th class="py-2.5 px-3">Terminus</th>
-              <th class="py-2.5 px-3">Arrêts</th>
-              <th class="py-2.5 px-3">Date Plan</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('stops')" title="Cliquer pour trier">
+                Arrêts ↕
+              </th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('date')" title="Cliquer pour trier">
+                Date Plan ↕
+              </th>
               <th class="py-2.5 px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="adm-line-table-body" class="divide-y divide-slate-100 dark:divide-slate-800">
-            ${linesData.map(l => renderAdminLineRow(l)).join('')}
+            ${linesData.map((l, idx) => renderAdminLineRow(l, idx)).join('')}
           </tbody>
         </table>
       </div>
@@ -1143,13 +1287,22 @@ function getLineListHtml() {
   `;
 }
 
-function renderAdminLineRow(l) {
+function renderAdminLineRow(l, idx = 0) {
+  const canUp = idx > 0;
+  const canDown = idx < linesData.length - 1;
+
   return `
     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
       <td class="py-2.5 px-3 font-bold">
-        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold shadow-sm" style="background-color: ${l.color}; color: ${l.textColor || '#FFF'};">
-          ${l.number}
-        </span>
+        <div class="flex items-center gap-1.5">
+          <div class="flex flex-col gap-0.5 mr-1">
+            <button type="button" onclick="handleMoveLine(${idx}, -1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canUp ? 'opacity-20 cursor-not-allowed' : ''}" ${!canUp ? 'disabled' : ''} title="Monter d'un rang">▲</button>
+            <button type="button" onclick="handleMoveLine(${idx}, 1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canDown ? 'opacity-20 cursor-not-allowed' : ''}" ${!canDown ? 'disabled' : ''} title="Descendre d'un rang">▼</button>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold shadow-sm" style="background-color: ${l.color}; color: ${l.textColor || '#FFF'};">
+            ${l.number}
+          </span>
+        </div>
       </td>
       <td class="py-2.5 px-3 font-bold text-slate-900 dark:text-white">${l.name}</td>
       <td class="py-2.5 px-3 font-semibold text-slate-500">${l.category}</td>
@@ -1158,8 +1311,11 @@ function renderAdminLineRow(l) {
       <td class="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-semibold">${l.planDate || '-'}</td>
       <td class="py-2.5 px-3 text-right">
         <div class="flex items-center justify-end gap-1.5">
-          <button type="button" onclick="startEditLine('${l.id}')" class="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1">
+          <button type="button" onclick="startEditLine('${l.id}')" class="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1" title="Modifier les informations de la ligne">
             <i data-lucide="edit-2" class="w-3 h-3"></i> Modifier
+          </button>
+          <button type="button" onclick="openPlanEditorForLine('${l.id}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm" title="Ouvrir directement l'Éditeur de Plan & Tracé officiel">
+            <i data-lucide="pen-tool" class="w-3 h-3"></i> Plan
           </button>
           <button type="button" onclick="handleDeleteLine('${l.id}')" class="p-1 text-slate-400 hover:text-red-600 transition" title="Supprimer">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -1176,29 +1332,35 @@ function filterAdminLineList(q) {
   if (!tbody) return;
 
   const matches = linesData.filter(l => 
-    l.number.toLowerCase().includes(query) ||
-    l.name.toLowerCase().includes(query) ||
-    (l.category && l.category.toLowerCase().includes(query)) ||
-    (l.terminusA && l.terminusA.toLowerCase().includes(query)) ||
-    (l.terminusB && l.terminusB.toLowerCase().includes(query))
+    String(l.number || '').toLowerCase().includes(query) ||
+    String(l.name || '').toLowerCase().includes(query) ||
+    (l.category && String(l.category).toLowerCase().includes(query)) ||
+    (l.terminusA && String(l.terminusA).toLowerCase().includes(query)) ||
+    (l.terminusB && String(l.terminusB).toLowerCase().includes(query))
   );
 
-  tbody.innerHTML = matches.map(l => renderAdminLineRow(l)).join('');
+  tbody.innerHTML = matches.map((l, idx) => renderAdminLineRow(l, idx)).join('');
   lucide.createIcons();
 }
 
 function startNewLineForm() {
+  activeAdminTab = 'line';
   editingLineId = null;
   tempLineStops = ["Terminus A", "Arrêt intermédiaire 1", "Arrêt intermédiaire 2", "Terminus B"];
   lineAdminSubView = 'form';
   renderAdminModalContent();
+  const container = document.getElementById('admin-form-container');
+  if (container) container.scrollTop = 0;
 }
 
 function startEditLine(id) {
+  activeAdminTab = 'line';
   editingLineId = id;
   loadLineForEdit(id);
   lineAdminSubView = 'form';
   renderAdminModalContent();
+  const container = document.getElementById('admin-form-container');
+  if (container) container.scrollTop = 0;
 }
 
 function getLineFormHtml(editId = null) {
@@ -1211,13 +1373,20 @@ function getLineFormHtml(editId = null) {
   return `
     <form id="add-line-form" onsubmit="handleSaveLine(event, '${editId || ''}')" class="space-y-5 max-h-[68vh] overflow-y-auto pr-1">
       
-      <div class="flex items-center justify-between bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
         <button type="button" onclick="lineAdminSubView = 'list'; renderAdminModalContent();" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1.5">
           <i data-lucide="arrow-left" class="w-4 h-4"></i> Retour à la liste des lignes
         </button>
-        <span class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-          ${isEditing ? `Modification Ligne ${l.number} (${l.name})` : '+ Création d\'une nouvelle ligne'}
-        </span>
+        <div class="flex items-center gap-2">
+          ${isEditing ? `
+            <button type="button" onclick="openPlanEditorForLine('${l.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="pen-tool" class="w-3.5 h-3.5"></i> Éditer le Tracé &amp; Plan Visuel
+            </button>
+          ` : ''}
+          <span class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
+            ${isEditing ? `Modification Ligne ${l.number} (${l.name})` : '+ Création d\'une nouvelle ligne'}
+          </span>
+        </div>
       </div>
 
       <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
@@ -1368,14 +1537,17 @@ function handleSaveLine(e, editId) {
   const stock = stockRaw ? stockRaw.split(',').map(s => s.trim()).filter(s => s.length > 0) : ['Iveco Urbanway 12 GNV'];
   const stops = stopsRaw ? stopsRaw.split(/,|\n/).map(s => s.trim()).filter(s => s.length > 0) : [termA, "Arrêt intermédiaire", termB];
 
+  const existingIdx = linesData.findIndex(l => (editId && l.id === editId) || l.number === num);
+  const existing = existingIdx !== -1 ? linesData[existingIdx] : null;
+
   const lineObj = {
-    id: editId || `L${num.replace(/\s+/g, '')}`,
+    id: editId || (existing ? existing.id : `L${num.replace(/\s+/g, '')}`),
     number: num,
     name: name,
     type: category === 'Tramway' ? 'Tramway' : (category.includes('Flex') || category.includes('Navette') ? 'Minibus' : 'Bus'),
     category: category,
     color: color,
-    textColor: '#FFFFFF',
+    textColor: (existing && existing.textColor) ? existing.textColor : '#FFFFFF',
     terminusA: termA,
     terminusB: termB,
     stationsCount: stops.length,
@@ -1387,10 +1559,13 @@ function handleSaveLine(e, editId) {
     stops: stops,
     rollingStock: stock,
     description: desc,
-    history: `Ligne du réseau Twisto.`
+    history: existing ? (existing.history || `Ligne du réseau Twisto.`) : `Ligne du réseau Twisto.`,
+    connections: existing && existing.connections ? existing.connections : {},
+    accessibility: existing && existing.accessibility ? existing.accessibility : [],
+    validFrom: existing && existing.validFrom ? existing.validFrom : '31 août 2026',
+    validUntil: existing && existing.validUntil ? existing.validUntil : '27 juin 2027'
   };
 
-  const existingIdx = linesData.findIndex(l => l.id === lineObj.id || l.number === num);
   if (existingIdx !== -1) {
     linesData[existingIdx] = lineObj;
     showToast(`La ligne ${num} a été mise à jour !`);
@@ -2434,11 +2609,7 @@ function handleFactoryReset() {
 
 const SITE_SETTINGS_KEY = 'histo14_site_settings_v1';
 
-function getSiteSettings() {
-  try {
-    const raw = localStorage.getItem(SITE_SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch(e) {}
+function getDefaultSiteSettings() {
   return {
     siteName: 'Histo14Bus',
     siteVersion: 'v2.0',
@@ -2461,8 +2632,43 @@ function getSiteSettings() {
       gallery: 'Galerie',
       about: 'Équipe'
     },
-    hiddenTabs: []
+    hiddenTabs: [],
+    pageTexts: {
+      heroBadge: 'Données Réseau Normandie & Twisto à jour 2026',
+      heroTitle: "L'Observatoire des Réseaux",
+      heroTitleAccent: 'Normands',
+      heroSubtitle: 'Base photographique et technique complète des bus, tramways et matériels roulants de Twisto (Caen la mer), Astuce (Rouen), LiA (Le Havre) et Nomad Car.',
+      linesSectionTitle: 'Lignes du Réseau Twisto',
+      linesEditionBadge: 'Édition 2025/2026',
+      linesDescription: 'Plans officiels, tracés thermomètres, arrêts et fiches des lignes Tramway, Lianes, Urbaines, Express, Navettes et Twistoflex (twisto.fr).',
+      movementsSectionTitle: 'Mouvements & Mutations de Parc',
+      movementsDescription: 'Suivi chronologique des arrivées de matériel neuf, des réformes et des transferts entre réseaux normands (Twisto, Astuce Rouen, LiA Le Havre).',
+      newsSectionTitle: 'Le MAG & Actualités Twisto',
+      newsDescription: 'Dossiers spéciaux, projets d\'extension (Tramway 2029), bilans écologiques et évolutions d\'itinéraires.',
+      gallerySectionTitle: 'Galerie Photographique & Spotteurs',
+      galleryDescription: 'Clichés haute résolution des bus et tramways sur le réseau, capturés par la communauté d\'amateurs passionnés.',
+      aboutSectionTitle: "À Propos d'Histo14Bus",
+      aboutDescription: "Histo14Bus est un projet indépendant et passionné d'archive, de référencement et d'actualités dédié aux transports urbains du Calvados (14) et de Normandie, avec une priorité accordée au réseau Twisto de la communauté urbaine Caen la mer, ainsi qu'aux réseaux Astuce Rouen, LiA Le Havre et Nomad Car."
+    }
   };
+}
+
+function getSiteSettings() {
+  const defaults = getDefaultSiteSettings();
+  try {
+    const raw = localStorage.getItem(SITE_SETTINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...defaults,
+        ...parsed,
+        navLabels: { ...defaults.navLabels, ...(parsed.navLabels || {}) },
+        mobileNavLabels: { ...defaults.mobileNavLabels, ...(parsed.mobileNavLabels || {}) },
+        pageTexts: { ...defaults.pageTexts, ...(parsed.pageTexts || {}) }
+      };
+    }
+  } catch(e) {}
+  return defaults;
 }
 
 function saveSiteSettings(settings) {
@@ -2499,13 +2705,11 @@ function applySiteSettings(settings) {
   navBtns.forEach(btn => {
     const tab = btn.dataset.tab;
     if (tab && settings.navLabels && settings.navLabels[tab]) {
-      // Update text, preserving the icon
       const icon = btn.querySelector('i');
       btn.innerHTML = '';
       if (icon) btn.appendChild(icon);
       btn.appendChild(document.createTextNode(' ' + settings.navLabels[tab]));
     }
-    // Hidden tabs
     if (settings.hiddenTabs && settings.hiddenTabs.includes(tab)) {
       btn.style.display = 'none';
     } else {
@@ -2529,6 +2733,55 @@ function applySiteSettings(settings) {
       btn.style.display = '';
     }
   });
+
+  // Page Texts (Textes des pages du site)
+  if (settings.pageTexts) {
+    const pt = settings.pageTexts;
+    const heroBadgeEl = document.getElementById('page-hero-badge');
+    if (heroBadgeEl && pt.heroBadge) heroBadgeEl.textContent = pt.heroBadge;
+
+    const heroTitleEl = document.getElementById('page-hero-title');
+    if (heroTitleEl && pt.heroTitle) heroTitleEl.textContent = pt.heroTitle;
+
+    const heroAccentEl = document.getElementById('page-hero-accent');
+    if (heroAccentEl && pt.heroTitleAccent) heroAccentEl.textContent = pt.heroTitleAccent;
+
+    const heroSubEl = document.getElementById('page-hero-subtitle');
+    if (heroSubEl && pt.heroSubtitle) heroSubEl.innerHTML = pt.heroSubtitle;
+
+    const linesTitleEl = document.getElementById('page-lines-title');
+    if (linesTitleEl && pt.linesSectionTitle) linesTitleEl.textContent = pt.linesSectionTitle;
+
+    const linesBadgeEl = document.getElementById('page-lines-edition');
+    if (linesBadgeEl && pt.linesEditionBadge) linesBadgeEl.textContent = pt.linesEditionBadge;
+
+    const linesDescEl = document.getElementById('page-lines-desc');
+    if (linesDescEl && pt.linesDescription) linesDescEl.textContent = pt.linesDescription;
+
+    const movTitleEl = document.getElementById('page-movements-title');
+    if (movTitleEl && pt.movementsSectionTitle) movTitleEl.textContent = pt.movementsSectionTitle;
+
+    const movDescEl = document.getElementById('page-movements-desc');
+    if (movDescEl && pt.movementsDescription) movDescEl.textContent = pt.movementsDescription;
+
+    const newsTitleEl = document.getElementById('page-news-title');
+    if (newsTitleEl && pt.newsSectionTitle) newsTitleEl.textContent = pt.newsSectionTitle;
+
+    const newsDescEl = document.getElementById('page-news-desc');
+    if (newsDescEl && pt.newsDescription) newsDescEl.textContent = pt.newsDescription;
+
+    const galTitleEl = document.getElementById('page-gallery-title');
+    if (galTitleEl && pt.gallerySectionTitle) galTitleEl.textContent = pt.gallerySectionTitle;
+
+    const galDescEl = document.getElementById('page-gallery-desc');
+    if (galDescEl && pt.galleryDescription) galDescEl.textContent = pt.galleryDescription;
+
+    const aboutTitleEl = document.getElementById('page-about-title');
+    if (aboutTitleEl && pt.aboutSectionTitle) aboutTitleEl.textContent = pt.aboutSectionTitle;
+
+    const aboutDescEl = document.getElementById('page-about-desc');
+    if (aboutDescEl && pt.aboutDescription) aboutDescEl.innerHTML = pt.aboutDescription;
+  }
 
   // Document title
   document.title = `${settings.siteName || 'Histo14Bus'} — Parc & Réseau Normandie`;
@@ -2611,6 +2864,107 @@ function getSiteTabContentHtml() {
         </div>
       </div>
 
+      <!-- Section: Textes des Pages -->
+      <div class="bg-blue-50 dark:bg-blue-950/30 rounded-2xl p-5 border border-blue-200 dark:border-blue-800 space-y-4">
+        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i> Textes des Pages du Site
+        </h4>
+
+        <!-- Hero Banner -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">🏠 Bannière d'accueil (Hero)</p>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Badge d'accroche</label>
+            <input type="text" name="heroBadge" value="${(s.pageTexts && s.pageTexts.heroBadge) || 'Données Réseau Normandie & Twisto à jour 2026'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre principal</label>
+              <input type="text" name="heroTitle" value="${(s.pageTexts && s.pageTexts.heroTitle) || "L'Observatoire des Réseaux"}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Mot en vert (accent)</label>
+              <input type="text" name="heroTitleAccent" value="${(s.pageTexts && s.pageTexts.heroTitleAccent) || 'Normands'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description sous le titre</label>
+            <textarea name="heroSubtitle" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.heroSubtitle) || 'Base photographique et technique complète des bus, tramways et matériels roulants de Twisto (Caen la mer), Astuce (Rouen), LiA (Le Havre) et Nomad Car.'}</textarea>
+          </div>
+        </div>
+
+        <!-- Section Lignes -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">🚌 Section Lignes & Plans</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
+              <input type="text" name="linesSectionTitle" value="${(s.pageTexts && s.pageTexts.linesSectionTitle) || 'Lignes du Réseau Twisto'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Badge édition</label>
+              <input type="text" name="linesEditionBadge" value="${(s.pageTexts && s.pageTexts.linesEditionBadge) || 'Édition 2025/2026'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
+            <textarea name="linesDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.linesDescription) || 'Plans officiels, tracés thermomètres, arrêts et fiches des lignes Tramway, Lianes, Urbaines, Express, Navettes et Twistoflex (twisto.fr).'}</textarea>
+          </div>
+        </div>
+
+        <!-- Section Mouvements -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">🔄 Section Mouvements</p>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
+            <input type="text" name="movementsSectionTitle" value="${(s.pageTexts && s.pageTexts.movementsSectionTitle) || 'Mouvements & Mutations de Parc'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
+            <textarea name="movementsDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.movementsDescription) || 'Suivi chronologique des arrivées de matériel neuf, des réformes et des transferts entre réseaux normands (Twisto, Astuce Rouen, LiA Le Havre).'}</textarea>
+          </div>
+        </div>
+
+        <!-- Section Le MAG -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">📰 Section Le MAG</p>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
+            <input type="text" name="newsSectionTitle" value="${(s.pageTexts && s.pageTexts.newsSectionTitle) || 'Le MAG & Actualités Twisto'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
+            <textarea name="newsDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.newsDescription) || 'Dossiers spéciaux, projets d\'extension (Tramway 2029), bilans écologiques et évolutions d\'itinéraires.'}</textarea>
+          </div>
+        </div>
+
+        <!-- Section Galerie -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">📸 Section Galerie Photos</p>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
+            <input type="text" name="gallerySectionTitle" value="${(s.pageTexts && s.pageTexts.gallerySectionTitle) || 'Galerie Photographique & Spotteurs'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
+            <textarea name="galleryDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.galleryDescription) || 'Clichés haute résolution des bus et tramways sur le réseau, capturés par la communauté d\'amateurs passionnés.'}</textarea>
+          </div>
+        </div>
+
+        <!-- Section À Propos -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">ℹ️ Section À Propos / Équipe</p>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
+            <input type="text" name="aboutSectionTitle" value="${(s.pageTexts && s.pageTexts.aboutSectionTitle) || "À Propos d'Histo14Bus"}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description / Présentation</label>
+            <textarea name="aboutDescription" rows="3" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.aboutDescription) || "<strong>Histo14Bus</strong> est un projet indépendant et passionné d'archive, de référencement et d'actualités dédié aux transports urbains du Calvados (14) et de Normandie."}</textarea>
+          </div>
+        </div>
+      </div>
+
       <!-- Save Button -->
       <div class="flex items-center justify-between pt-2">
         <button type="button" onclick="resetSiteSettings()" class="px-4 py-2 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-red-200 dark:border-red-800">
@@ -2643,6 +2997,24 @@ function handleSaveSiteSettings(event) {
     if (hiddenCb && hiddenCb.checked) hiddenTabs.push(tab);
   });
 
+  const pageTexts = {
+    heroBadge: form.querySelector('[name="heroBadge"]')?.value.trim() || '',
+    heroTitle: form.querySelector('[name="heroTitle"]')?.value.trim() || '',
+    heroTitleAccent: form.querySelector('[name="heroTitleAccent"]')?.value.trim() || '',
+    heroSubtitle: form.querySelector('[name="heroSubtitle"]')?.value.trim() || '',
+    linesSectionTitle: form.querySelector('[name="linesSectionTitle"]')?.value.trim() || '',
+    linesEditionBadge: form.querySelector('[name="linesEditionBadge"]')?.value.trim() || '',
+    linesDescription: form.querySelector('[name="linesDescription"]')?.value.trim() || '',
+    movementsSectionTitle: form.querySelector('[name="movementsSectionTitle"]')?.value.trim() || '',
+    movementsDescription: form.querySelector('[name="movementsDescription"]')?.value.trim() || '',
+    newsSectionTitle: form.querySelector('[name="newsSectionTitle"]')?.value.trim() || '',
+    newsDescription: form.querySelector('[name="newsDescription"]')?.value.trim() || '',
+    gallerySectionTitle: form.querySelector('[name="gallerySectionTitle"]')?.value.trim() || '',
+    galleryDescription: form.querySelector('[name="galleryDescription"]')?.value.trim() || '',
+    aboutSectionTitle: form.querySelector('[name="aboutSectionTitle"]')?.value.trim() || '',
+    aboutDescription: form.querySelector('[name="aboutDescription"]')?.value.trim() || ''
+  };
+
   const settings = {
     siteName: form.querySelector('[name="siteName"]')?.value.trim() || 'Histo14Bus',
     siteVersion: form.querySelector('[name="siteVersion"]')?.value.trim() || 'v2.0',
@@ -2651,7 +3023,8 @@ function handleSaveSiteSettings(event) {
     footerCredit: form.querySelector('[name="footerCredit"]')?.value.trim() || 'Développé par Nolhanbj • Données informatives.',
     navLabels,
     mobileNavLabels,
-    hiddenTabs
+    hiddenTabs,
+    pageTexts
   };
 
   saveSiteSettings(settings);
@@ -3094,10 +3467,18 @@ function renderPlanEditorPreview(line) {
     validUntil: document.getElementById('pe-valid-until') ? document.getElementById('pe-valid-until').value : (line.validUntil || '27 juin 2027')
   };
   return `
-    <div class="naotc-plan-scroll" style="padding: 44px 20px 16px;">
+    <div class="naotc-plan-scroll" style="padding: 24px 20px 120px; min-height: 290px;">
       ${typeof renderNaotcPlan === 'function' ? renderNaotcPlan(dummyLine, currentEditingStops) : '<p class="text-xs">Chargement plan...</p>'}
     </div>
   `;
+}
+
+function handleMoveStop(idx, dir) {
+  const targetIdx = idx + dir;
+  if (targetIdx < 0 || targetIdx >= currentEditingStops.length) return;
+  const item = currentEditingStops.splice(idx, 1)[0];
+  currentEditingStops.splice(targetIdx, 0, item);
+  refreshPlanEditorUi();
 }
 
 function renderPlanEditorStopsList() {
@@ -3110,10 +3491,16 @@ function renderPlanEditorStopsList() {
     const isTermB = idx === currentEditingStops.length - 1;
     const conns = (currentEditingConnections[stop] || []).join(', ');
     const isPmr = currentEditingAccessibility.includes(stop);
+    const canUp = idx > 0;
+    const canDown = idx < currentEditingStops.length - 1;
 
     return `
       <div class="naotc-editor-stop-row flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs" draggable="true" ondragstart="handleStopDragStart(event, ${idx})" ondragover="handleStopDragOver(event, ${idx})" ondrop="handleStopDrop(event, ${idx})">
-        <span class="cursor-grab text-slate-400 hover:text-slate-600 px-1 font-bold">⋮⋮</span>
+        <span class="cursor-grab text-slate-400 hover:text-slate-600 px-1 font-bold select-none" title="Glisser pour déplacer">⋮⋮</span>
+        <div class="flex flex-col gap-0.5">
+          <button type="button" onclick="handleMoveStop(${idx}, -1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canUp ? 'opacity-20 cursor-not-allowed' : ''}" ${!canUp ? 'disabled' : ''} title="Monter d'un rang">▲</button>
+          <button type="button" onclick="handleMoveStop(${idx}, 1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canDown ? 'opacity-20 cursor-not-allowed' : ''}" ${!canDown ? 'disabled' : ''} title="Descendre d'un rang">▼</button>
+        </div>
         <span class="w-5 text-center font-bold text-slate-400 text-[10px]">${idx + 1}</span>
         <div class="flex-1 min-w-0">
           <input type="text" value="${stop}" onchange="handleUpdateStopName(${idx}, this.value)" class="w-full px-2 py-1 bg-transparent font-bold text-slate-800 dark:text-slate-100 border-b border-transparent focus:border-emerald-500 outline-none truncate" />
@@ -3274,10 +3661,7 @@ function exportPlanJson() {
 window.addEventListener('DOMContentLoaded', () => {
   updateAdminUI();
   // Apply saved site settings on page load
-  const savedSettings = getSiteSettings();
-  if (localStorage.getItem(SITE_SETTINGS_KEY)) {
-    applySiteSettings(savedSettings);
-  }
+  applySiteSettings(getSiteSettings());
   // Apply saved appearance settings on page load
   if (typeof applyAppearanceSettings === 'function') {
     applyAppearanceSettings(getAppearanceSettings());
