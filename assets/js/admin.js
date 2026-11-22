@@ -1039,6 +1039,9 @@ function handleSaveVehicle(e, editId) {
         id: editId
       };
       localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
+      if (typeof saveVehicleToSupabase === 'function') {
+        saveVehicleToSupabase(fleetData[index]);
+      }
       showToast(`Le véhicule n°${num} a été mis à jour avec succès !`);
     }
   } else {
@@ -1049,6 +1052,9 @@ function handleSaveVehicle(e, editId) {
     };
     fleetData.unshift(newVehicle);
     localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
+    if (typeof saveVehicleToSupabase === 'function') {
+      saveVehicleToSupabase(newVehicle);
+    }
     showToast(`Le véhicule n°${num} (${network}) a été ajouté au parc !`);
   }
 
@@ -1067,6 +1073,9 @@ function handleDeleteVehicle(vehicleId) {
   if (confirm("Êtes-vous sûr de vouloir supprimer définitivement ce véhicule du parc ?")) {
     fleetData = fleetData.filter(v => v.id !== vehicleId && v.number !== vehicleId);
     localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
+    if (typeof deleteVehicleFromSupabase === 'function') {
+      deleteVehicleFromSupabase(vehicleId);
+    }
     updateFleetStats();
     updateNetworkCardCounts();
     renderFleet();
@@ -1392,6 +1401,9 @@ function handleSaveLine(e, editId) {
 
   localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
   localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
+  if (typeof saveLineToSupabase === 'function') {
+    saveLineToSupabase(lineObj);
+  }
   renderLines();
   lineAdminSubView = 'list';
   renderAdminModalContent();
@@ -1402,6 +1414,9 @@ function handleDeleteLine(lineId) {
     linesData = linesData.filter(l => l.id !== lineId && l.number !== lineId);
     localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
     localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
+    if (typeof deleteLineFromSupabase === 'function') {
+      deleteLineFromSupabase(lineId);
+    }
     renderLines();
     renderAdminModalContent();
     showToast("Ligne supprimée.");
@@ -1521,6 +1536,9 @@ function handleSaveGalleryPhoto(e, editId) {
   }
 
   localStorage.setItem('histo14_gallery_data', JSON.stringify(galleryData));
+  if (typeof saveGalleryToSupabase === 'function') {
+    saveGalleryToSupabase(photoObj);
+  }
   if (typeof renderGallery === 'function') renderGallery();
   editingPhotoId = null;
   renderAdminModalContent();
@@ -1531,6 +1549,9 @@ function handleDeleteGalleryPhoto(id) {
   if (confirm("Supprimer cette photo de la galerie ?")) {
     galleryData = galleryData.filter(p => p.id !== id);
     localStorage.setItem('histo14_gallery_data', JSON.stringify(galleryData));
+    if (typeof deleteGalleryFromSupabase === 'function') {
+      deleteGalleryFromSupabase(id);
+    }
     if (typeof renderGallery === 'function') renderGallery();
     renderAdminModalContent();
     showToast("Photo supprimée.");
@@ -1675,6 +1696,9 @@ function handleSaveNewsArticle(e, editId) {
   }
 
   localStorage.setItem('histo14_news_data', JSON.stringify(newsData));
+  if (typeof saveNewsToSupabase === 'function') {
+    saveNewsToSupabase(article);
+  }
   if (typeof renderNews === 'function') renderNews();
   editingNewsId = null;
   renderAdminModalContent();
@@ -1685,6 +1709,9 @@ function handleDeleteNewsArticle(id) {
   if (confirm("Supprimer cet article ?")) {
     newsData = newsData.filter(a => a.id !== id);
     localStorage.setItem('histo14_news_data', JSON.stringify(newsData));
+    if (typeof deleteNewsFromSupabase === 'function') {
+      deleteNewsFromSupabase(id);
+    }
     if (typeof renderNews === 'function') renderNews();
     renderAdminModalContent();
     showToast("Article supprimé.");
@@ -1793,6 +1820,9 @@ function handleSaveMovement(e) {
 
   movementsData.unshift(movObj);
   localStorage.setItem('histo14_movements_data', JSON.stringify(movementsData));
+  if (typeof saveMovementToSupabase === 'function') {
+    saveMovementToSupabase(movObj);
+  }
   if (typeof renderMovements === 'function') renderMovements();
   renderAdminModalContent();
   showToast("Mouvement enregistré !");
@@ -1802,6 +1832,9 @@ function handleDeleteMovement(id) {
   if (confirm("Supprimer ce mouvement de parc ?")) {
     movementsData = movementsData.filter(m => m.id !== id);
     localStorage.setItem('histo14_movements_data', JSON.stringify(movementsData));
+    if (typeof deleteMovementFromSupabase === 'function') {
+      deleteMovementFromSupabase(id);
+    }
     if (typeof renderMovements === 'function') renderMovements();
     renderAdminModalContent();
     showToast("Mouvement supprimé.");
@@ -2169,6 +2202,30 @@ function getBackupTabContentHtml() {
         </div>
       </div>
 
+      <!-- Supabase Cloud Sync Box -->
+      <div class="p-5 bg-gradient-to-r from-emerald-950/20 to-slate-900 rounded-2xl border border-emerald-500/30 space-y-3 pt-4 border-t">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h5 class="text-sm font-bold text-white">3. Base de données Supabase Cloud (PostgreSQL)</h5>
+          </div>
+          <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">ovtldavqzacgjtjcjarv</span>
+        </div>
+        <p class="text-xs text-slate-300">
+          Votre site est relié à Supabase (<code>https://ovtldavqzacgjtjcjarv.supabase.co</code>). Toutes les modifications effectuées dans l'espace Admin sont directement synchronisées dans votre base PostgreSQL en temps réel.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3 pt-2">
+          <button type="button" id="btn-sync-all-supabase" onclick="handleTransferAllToSupabase()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-700/20">
+            <i data-lucide="cloud-upload" class="w-4 h-4"></i> Transférer toutes les données vers Supabase
+          </button>
+          <a href="supabase_setup_and_data.sql" download class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-2 border border-slate-700">
+            <i data-lucide="file-code" class="w-4 h-4 text-emerald-400"></i> Télécharger le script SQL (Création tables & données)
+          </a>
+        </div>
+        <div id="supabase-sync-status" class="hidden text-xs text-emerald-400 font-medium"></div>
+      </div>
+
       <!-- Factory Reset -->
       <div class="p-4 bg-red-50 dark:bg-red-950/40 rounded-2xl border border-red-200 dark:border-red-800/60 flex items-center justify-between gap-4">
         <div>
@@ -2319,6 +2376,42 @@ function handleImportJsonFile() {
   };
 
   reader.readAsText(file);
+}
+
+async function handleTransferAllToSupabase() {
+  const btn = document.getElementById('btn-sync-all-supabase');
+  const statusEl = document.getElementById('supabase-sync-status');
+  if (btn) btn.disabled = true;
+  if (statusEl) {
+    statusEl.classList.remove('hidden');
+    statusEl.innerText = "Démarrage du transfert vers Supabase...";
+  }
+
+  try {
+    if (typeof transferAllDataToSupabase !== 'function') {
+      throw new Error("Module Supabase non chargé. Vérifiez votre connexion Internet.");
+    }
+
+    const report = await transferAllDataToSupabase((msg, pct) => {
+      if (statusEl) statusEl.innerText = `[${pct}%] ${msg}`;
+    });
+
+    alert(`Transfert réussi sur Supabase !\n\n` +
+      `- Flotte : ${report.vehicles} véhicules\n` +
+      `- Lignes : ${report.lines} lignes\n` +
+      `- Actualités : ${report.news} articles\n` +
+      `- Mouvements : ${report.movements} mouvements\n` +
+      `- Galerie : ${report.gallery} photos\n\n` +
+      `Vos données sont désormais hébergées et synchronisées en direct sur Supabase.`);
+
+    if (statusEl) statusEl.innerText = "✅ Synchronisation réussie ! Données en ligne sur Supabase.";
+  } catch (err) {
+    console.error("Erreur transfert Supabase:", err);
+    alert("Échec du transfert vers Supabase :\n" + err.message + "\n\nAstuce : Si les tables ne sont pas encore créées, rendez-vous dans le tableau de bord Supabase -> SQL Editor, et exécutez le script 'supabase_setup_and_data.sql' généré à la racine de votre site.");
+    if (statusEl) statusEl.innerText = "❌ Échec : " + err.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function handleFactoryReset() {

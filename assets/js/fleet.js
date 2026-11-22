@@ -18,27 +18,46 @@ let currentVehicleIndex = -1;
 
 async function initFleet() {
   try {
-    const FLEET_VERSION = "2026_v5_utf8fix";
-    const storedVersion = localStorage.getItem('histo14_fleet_version');
-    if (storedVersion !== FLEET_VERSION) {
-      localStorage.removeItem('histo14_fleet_data');
-      localStorage.setItem('histo14_fleet_version', FLEET_VERSION);
-      fleetData = [];
-    } else {
-      const localFleet = localStorage.getItem('histo14_fleet_data');
-      if (localFleet) {
-        try {
-          fleetData = JSON.parse(localFleet);
-        } catch (e) {
-          console.warn('Erreur lecture localFleet:', e);
+    let loadedFromSupabase = false;
+
+    // Tentative de chargement en direct depuis Supabase
+    if (typeof fetchFleetFromSupabase === 'function') {
+      try {
+        const sbData = await fetchFleetFromSupabase();
+        if (sbData && Array.isArray(sbData) && sbData.length > 0) {
+          fleetData = sbData;
+          localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
+          loadedFromSupabase = true;
+          console.info(`[Histo14Bus] ${sbData.length} véhicules chargés depuis Supabase.`);
         }
+      } catch (sbErr) {
+        console.warn('[Histo14Bus] Supabase indisponible, utilisation du cache local:', sbErr);
       }
     }
 
-    if (!fleetData || fleetData.length < 50) {
-      const response = await fetch('data/fleet.json?t=' + Date.now());
-      fleetData = await response.json();
-      localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
+    if (!loadedFromSupabase) {
+      const FLEET_VERSION = "2026_v5_utf8fix";
+      const storedVersion = localStorage.getItem('histo14_fleet_version');
+      if (storedVersion !== FLEET_VERSION) {
+        localStorage.removeItem('histo14_fleet_data');
+        localStorage.setItem('histo14_fleet_version', FLEET_VERSION);
+        fleetData = [];
+      } else {
+        const localFleet = localStorage.getItem('histo14_fleet_data');
+        if (localFleet) {
+          try {
+            fleetData = JSON.parse(localFleet);
+          } catch (e) {
+            console.warn('Erreur lecture localFleet:', e);
+          }
+        }
+      }
+
+      if (!fleetData || fleetData.length < 50) {
+        const response = await fetch('data/fleet.json?t=' + Date.now());
+        fleetData = await response.json();
+        localStorage.setItem('histo14_fleet_data', JSON.stringify(fleetData));
+      }
     }
 
 

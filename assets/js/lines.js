@@ -100,12 +100,31 @@ function getLineCardTitle(line) {
 
 async function initLines() {
   try {
-    const localLines = localStorage.getItem("histo14_lines_data_v3");
-    if (localLines) { try { linesData = JSON.parse(localLines); } catch(e) {} }
-    if (!linesData || linesData.length < 5 || !linesData.some(l => l.connections)) {
-      const res = await fetch("data/lines.json?t=" + Date.now());
-      linesData = await res.json();
-      localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
+    let loadedFromSupabase = false;
+
+    // Tentative de chargement depuis Supabase
+    if (typeof fetchLinesFromSupabase === 'function') {
+      try {
+        const sbLines = await fetchLinesFromSupabase();
+        if (sbLines && Array.isArray(sbLines) && sbLines.length > 0) {
+          linesData = sbLines;
+          localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
+          loadedFromSupabase = true;
+          console.info(`[Histo14Bus] ${sbLines.length} lignes chargées depuis Supabase.`);
+        }
+      } catch (sbErr) {
+        console.warn('[Histo14Bus] Supabase lignes indisponible, repli local:', sbErr);
+      }
+    }
+
+    if (!loadedFromSupabase) {
+      const localLines = localStorage.getItem("histo14_lines_data_v3");
+      if (localLines) { try { linesData = JSON.parse(localLines); } catch(e) {} }
+      if (!linesData || linesData.length < 5 || !linesData.some(l => l.connections)) {
+        const res = await fetch("data/lines.json?t=" + Date.now());
+        linesData = await res.json();
+        localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
+      }
     }
     renderLines();
   } catch (err) { console.error("Erreur lignes:", err); }

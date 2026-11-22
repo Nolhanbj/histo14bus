@@ -220,6 +220,21 @@ function initKeyboardShortcuts() {
 /* --- MOVEMENTS MODULE --- */
 async function loadMovements() {
   try {
+    // 1. Supabase en priorité
+    if (typeof fetchMovementsFromSupabase === 'function') {
+      try {
+        const sbMovements = await fetchMovementsFromSupabase();
+        if (sbMovements && Array.isArray(sbMovements) && sbMovements.length > 0) {
+          movementsData = sbMovements;
+          localStorage.setItem('histo14_movements_data', JSON.stringify(movementsData));
+          renderMovements();
+          return;
+        }
+      } catch (err) {
+        console.warn('[Histo14Bus] Supabase mouvements indisponible, repli local:', err);
+      }
+    }
+
     const saved = localStorage.getItem('histo14_movements_data');
     if (saved) {
       movementsData = JSON.parse(saved);
@@ -291,6 +306,21 @@ function renderMovements() {
 /* --- NEWS & LE MAG MODULE --- */
 async function loadNews() {
   try {
+    // 1. Supabase en priorité
+    if (typeof fetchNewsFromSupabase === 'function') {
+      try {
+        const sbNews = await fetchNewsFromSupabase();
+        if (sbNews && Array.isArray(sbNews) && sbNews.length > 0) {
+          newsData = sbNews;
+          localStorage.setItem('histo14_news_data', JSON.stringify(newsData));
+          renderNews();
+          return;
+        }
+      } catch (err) {
+        console.warn('[Histo14Bus] Supabase actualités indisponible, repli local:', err);
+      }
+    }
+
     const saved = localStorage.getItem('histo14_news_data');
     if (saved) {
       newsData = JSON.parse(saved);
@@ -443,20 +473,39 @@ function getDefaultGallery() {
   ];
 }
 
-function loadGallery() {
-  const saved = localStorage.getItem('histo14_gallery_data');
-  if (saved) {
-    try {
-      galleryData = JSON.parse(saved);
-    } catch (e) {
-      console.warn("Erreur lecture galerie:", e);
-      galleryData = getDefaultGallery();
+async function loadGallery() {
+  try {
+    // 1. Supabase en priorité
+    if (typeof fetchGalleryFromSupabase === 'function') {
+      try {
+        const sbGallery = await fetchGalleryFromSupabase();
+        if (sbGallery && Array.isArray(sbGallery) && sbGallery.length > 0) {
+          galleryData = sbGallery;
+          localStorage.setItem('histo14_gallery_data', JSON.stringify(galleryData));
+          renderGallery();
+          return;
+        }
+      } catch (err) {
+        console.warn('[Histo14Bus] Supabase galerie indisponible, repli local:', err);
+      }
     }
-  } else {
-    galleryData = getDefaultGallery();
-    localStorage.setItem('histo14_gallery_data', JSON.stringify(galleryData));
+
+    const saved = localStorage.getItem('histo14_gallery_data');
+    if (saved) {
+      try {
+        galleryData = JSON.parse(saved);
+      } catch (e) {
+        console.warn("Erreur lecture galerie:", e);
+        galleryData = getDefaultGallery();
+      }
+    } else {
+      galleryData = getDefaultGallery();
+      localStorage.setItem('histo14_gallery_data', JSON.stringify(galleryData));
+    }
+    renderGallery();
+  } catch (e) {
+    console.error('Erreur chargement galerie:', e);
   }
-  renderGallery();
 }
 
 function renderGallery() {
