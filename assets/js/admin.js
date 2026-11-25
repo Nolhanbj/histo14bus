@@ -26,7 +26,6 @@ let newsAdminSubView = 'articles'; // 'articles' or 'movements'
 // Temporary state for editing vehicle/line arrays
 let tempVehicleFeatures = [];
 let tempVehicleHistory = [];
-let tempVehicleLines = [];
 let tempLineStops = [];
 
 const ACCOUNTS_STORAGE_KEY = 'histo14_admin_accounts_v2';
@@ -70,46 +69,23 @@ function getDefaultPresets() {
       "City 23", "Crossway Line GNV", "Crossway LE GNV", "Intouro", "Bluebus 6m", "Bluebus 12", "Lion's City 12 G"
     ],
     operators: [
-      "RD Caen la Mer", "Keolis Caen Mobilités", "Keolis Pays Normands", "Autocars Delcourt",
-      "Transdev Normandie", "Transdev Rouen", "Transdev Le Havre", "Keolis Normandie",
-      "Voyages Robert", "Affrété Twisto"
+      "Keolis Caen la mer", "Keolis Pays Normands", "RATP Dev Caen", "TCAR / Métropole Rouen Normandie",
+      "Transdev Le Havre", "Keolis Normandie", "Transdev Normandie Interurbain", "Voyages Robert", "Affrété Twisto"
     ],
     standardFeatures: [
       "Climatisation intégrale", "Accès PMR / Rampe UFR motorisée", "Prises de recharge USB passagers",
       "Vidéoprotection embarquée", "Écrans TFT SAEIV dynamiques", "Annonces sonores & visuelles",
       "Plancher bas intégral", "Rétroviseurs Caméras", "Wi-Fi 4G à bord", "Éclairage Full LED", "Girouettes diode couleur"
-    ],
-    standardLines: [
-      "T1", "T2", "T3", "Liane 1", "Liane 2", "Liane 3", "Liane 4",
-      "Ligne 6", "Ligne 7", "Ligne 8", "Ligne 9", "Ligne 10", "Ligne 11", "Ligne 12",
-      "Ligne 20", "Ligne 21", "Ligne 22", "Ligne 23", "Ligne 25", "Ligne 30", "Ligne 31", "Ligne 32",
-      "NVCV", "Twistoflex", "Resago", "Scolaire", "Réserve Dépôt"
     ]
   };
 }
 
 function getPresets() {
-  const defaults = getDefaultPresets();
   const saved = localStorage.getItem(PRESETS_STORAGE_KEY);
   if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      // Détecte une corruption UTF-8 (double-encodage Latin-1) dans le cache
-      if (JSON.stringify(parsed).includes('Ã')) {
-        console.warn('[Admin] Presets corrompus (UTF-8) détectés → reset vers les valeurs par défaut');
-        localStorage.removeItem(PRESETS_STORAGE_KEY);
-        localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(defaults));
-        return defaults;
-      }
-      return {
-        brands: Array.isArray(parsed.brands) && parsed.brands.length > 0 ? parsed.brands : defaults.brands,
-        models: Array.isArray(parsed.models) && parsed.models.length > 0 ? parsed.models : defaults.models,
-        operators: Array.isArray(parsed.operators) && parsed.operators.length > 0 ? parsed.operators : defaults.operators,
-        standardFeatures: Array.isArray(parsed.standardFeatures) && parsed.standardFeatures.length > 0 ? parsed.standardFeatures : defaults.standardFeatures,
-        standardLines: Array.isArray(parsed.standardLines) && parsed.standardLines.length > 0 ? parsed.standardLines : defaults.standardLines
-      };
-    } catch (e) { console.error(e); }
+    try { return JSON.parse(saved); } catch (e) { console.error(e); }
   }
+  const defaults = getDefaultPresets();
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(defaults));
   return defaults;
 }
@@ -426,7 +402,7 @@ function renderAdminModalContent() {
           <i data-lucide="database" class="w-4 h-4"></i> Sauvegardes / JSON
         </button>
         <button type="button" onclick="switchAdminTab('site')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'site' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-          <i data-lucide="file-text" class="w-4 h-4"></i> Textes du Site
+          <i data-lucide="settings" class="w-4 h-4"></i> Site &amp; Navigation
         </button>
         <button type="button" onclick="switchAdminTab('appearance')" class="px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'appearance' ? 'bg-violet-600 text-white shadow-md' : 'bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 hover:bg-violet-100 border border-violet-300/40'}">
           <i data-lucide="palette" class="w-4 h-4"></i> Apparence
@@ -471,51 +447,11 @@ function getAdminTabContentHtml(presets, accounts) {
    TAB 1: VEHICLES & FLEET MANAGEMENT (LISTE & FORMULAIRE COMPLET A à Z)
    ========================================================================= */
 
-// Corrige les caractères UTF-8 corrompus dans une chaîne (double-encodage Latin-1)
-function fixAdminUtf8Str(s) {
-  if (!s || typeof s !== 'string') return s;
-  return s
-    .replace(/Ã©/g,'é').replace(/Ã¨/g,'è').replace(/Ã‡/g,'Ç').replace(/Ã§/g,'ç')
-    .replace(/Ã /g,'à').replace(/Ã¢/g,'â').replace(/Ã®/g,'î').replace(/Ã´/g,'ô')
-    .replace(/Ã»/g,'û').replace(/Ã«/g,'ë').replace(/Ã¯/g,'ï').replace(/Ã¼/g,'ü')
-    .replace(/Ã‰/g,'É').replace(/Ã€/g,'À').replace(/Ã‚/g,'Â')
-    .replace(/â™¿/g,'♿').replace(/â€™/g,"'").replace(/â€"/g,'–')
-    .replace(/Â°/g,'°').replace(/Â«/g,'«').replace(/Â»/g,'»');
-}
-
 function loadVehicleForEdit(id) {
   const target = fleetData.find(v => v.id === id || v.number === id);
   if (target) {
-    // Features / Equipments (garanti en tableau, corrigé UTF-8)
-    let rawFeat = target.features || target.equipments;
-    if (Array.isArray(rawFeat)) {
-      tempVehicleFeatures = rawFeat.map(fixAdminUtf8Str);
-    } else if (typeof rawFeat === 'string' && rawFeat.trim()) {
-      tempVehicleFeatures = rawFeat.split(',').map(f => fixAdminUtf8Str(f.trim())).filter(Boolean);
-    } else {
-      tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
-    }
-
-    // Lines / Affectations (garanti en tableau)
-    let rawLines = target.lines;
-    if (Array.isArray(rawLines)) {
-      tempVehicleLines = rawLines.map(l => fixAdminUtf8Str(String(l).trim())).filter(Boolean);
-    } else if (typeof rawLines === 'string' && rawLines.trim()) {
-      tempVehicleLines = rawLines.split(',').map(l => fixAdminUtf8Str(l.trim())).filter(Boolean);
-    } else {
-      tempVehicleLines = [];
-    }
-
-    // History (garanti en tableau d'objets)
-    if (Array.isArray(target.history)) {
-      tempVehicleHistory = JSON.parse(JSON.stringify(target.history));
-    } else if (target.history && typeof target.history === 'object') {
-      tempVehicleHistory = [JSON.parse(JSON.stringify(target.history))];
-    } else if (typeof target.history === 'string' && target.history.trim()) {
-      tempVehicleHistory = [{ date: target.serviceDate || target.deliveryDate || '2024-01-01', event: target.history }];
-    } else {
-      tempVehicleHistory = [{ date: target.serviceDate || target.deliveryDate || new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
-    }
+    tempVehicleFeatures = target.features || target.equipments ? [...(target.features || target.equipments)] : [];
+    tempVehicleHistory = target.history ? JSON.parse(JSON.stringify(target.history)) : [];
   } else {
     tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
     tempVehicleHistory = [{ date: new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
@@ -572,12 +508,6 @@ function getVehicleListHtml() {
   `;
 }
 
-function cleanVehicleEnergy(e) {
-  if (!e) return '-';
-  if (e.includes('Ã') || e.toLowerCase().includes('lectrique')) return 'Électrique';
-  return e;
-}
-
 function renderAdminVehicleRow(v) {
   return `
     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
@@ -588,7 +518,7 @@ function renderAdminVehicleRow(v) {
       <td class="py-2.5 px-3 font-semibold text-emerald-600 dark:text-emerald-400">${v.network || 'Twisto'}</td>
       <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">${v.model}</td>
       <td class="py-2.5 px-3 font-mono">${v.plate || v.registration || '-'}</td>
-      <td class="py-2.5 px-3 font-semibold">${cleanVehicleEnergy(v.energy)}</td>
+      <td class="py-2.5 px-3">${v.energy || '-'}</td>
       <td class="py-2.5 px-3">
         <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${v.status === 'Actuel' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'}">
           ${v.status || 'Actuel'}
@@ -629,19 +559,15 @@ function startNewVehicleForm() {
   editingVehicleId = null;
   tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
   tempVehicleHistory = [{ date: new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
-  tempVehicleLines = [];
   vehicleAdminSubView = 'form';
   renderAdminModalContent();
 }
 
 function startEditVehicle(id) {
-  activeAdminTab = 'vehicle';
   editingVehicleId = id;
   loadVehicleForEdit(id);
   vehicleAdminSubView = 'form';
   renderAdminModalContent();
-  const container = document.getElementById('admin-form-container');
-  if (container) container.scrollTop = 0;
 }
 
 function getVehicleFormHtml(editId = null, presets = null) {
@@ -715,41 +641,10 @@ function getVehicleFormHtml(editId = null, presets = null) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Exploitant / Transporteur *</label>
-            <input type="text" id="adm-operator" list="presets-operators-list" required value="${v ? v.operator || '' : 'RD Caen la Mer'}" placeholder="Sélectionnez ou tapez l'exploitant" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" />
+            <input type="text" id="adm-operator" list="presets-operators-list" required value="${v ? v.operator || '' : 'Keolis Caen la mer'}" placeholder="Sélectionnez ou tapez l'exploitant" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" />
             <datalist id="presets-operators-list">
               ${presets.operators.map(o => `<option value="${o}"></option>`).join('')}
             </datalist>
-
-            <!-- Quick Operators Buttons -->
-            <div class="mt-2.5">
-              <span class="text-[11px] font-bold text-slate-400 block mb-1">Exploitants fréquents :</span>
-              <div class="flex flex-wrap gap-1.5" id="quick-operators-container">
-                ${presets.operators.map(op => {
-                  const isSel = (v ? (v.operator || '') : 'RD Caen la Mer') === op;
-                  return `
-                    <button type="button" onclick="selectVehicleOperator('${op.replace(/'/g, "\\'")}')" class="quick-op-btn px-2 py-1 rounded-lg text-[11px] font-semibold transition border ${isSel ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}">
-                      ${op}
-                    </button>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-
-            <!-- Historique des Exploitants -->
-            <div class="mt-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-              <span class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <i data-lucide="history" class="w-3.5 h-3.5 text-blue-600"></i> Consigner un exploitant dans l'historique avec période :
-              </span>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input type="text" id="hist-operator-name" list="presets-operators-list" placeholder="Exploitant (ex: Keolis Caen la mer)" class="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" />
-                <input type="text" id="hist-operator-period" placeholder="Période (ex: 2019 à 2024 ou 01/10/2019 au 31/12/2024)" class="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div class="flex justify-end pt-1">
-                <button type="button" onclick="handleAddOperatorToHistory()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-sm">
-                  <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Enregistrer dans l'historique
-                </button>
-              </div>
-            </div>
           </div>
 
           <div>
@@ -881,10 +776,10 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
 
         <div id="active-features-container" class="flex flex-wrap gap-1.5 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[45px]">
-          ${(Array.isArray(tempVehicleFeatures) ? tempVehicleFeatures : []).map((f, idx) => `
+          ${tempVehicleFeatures.map(f => `
             <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
               <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i> ${f}
-              <button type="button" onclick="removeVehicleFeatureByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
+              <button type="button" onclick="removeVehicleFeature('${f}')" class="text-slate-400 hover:text-red-500 ml-1">
                 <i data-lucide="x" class="w-3 h-3"></i>
               </button>
             </span>
@@ -901,26 +796,6 @@ function getVehicleFormHtml(editId = null, presets = null) {
           <span class="text-xs text-emerald-600 font-bold" id="history-count-badge">${tempVehicleHistory.length} événement(s)</span>
         </div>
 
-        <!-- Modèles rapides d'insertion -->
-        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
-          <span class="text-slate-500 font-bold mr-1">Modèles rapides :</span>
-          <button type="button" onclick="insertHistoryTemplate('affectation')" class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 font-semibold hover:bg-emerald-100 flex items-center gap-1">
-            <i data-lucide="route" class="w-3 h-3"></i> Affectation Ligne
-          </button>
-          <button type="button" onclick="insertHistoryTemplate('exploitant')" class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-300/40 font-semibold hover:bg-blue-100 flex items-center gap-1">
-            <i data-lucide="building" class="w-3 h-3"></i> Exploitant
-          </button>
-          <button type="button" onclick="insertHistoryTemplate('service')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-200 flex items-center gap-1">
-            <i data-lucide="check-circle" class="w-3 h-3"></i> Mise en service
-          </button>
-          <button type="button" onclick="insertHistoryTemplate('livree')" class="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300/40 font-semibold hover:bg-amber-100 flex items-center gap-1">
-            <i data-lucide="palette" class="w-3 h-3"></i> Livrée
-          </button>
-          <button type="button" onclick="insertHistoryTemplate('reforme')" class="px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-300/40 font-semibold hover:bg-red-100 flex items-center gap-1">
-            <i data-lucide="alert-triangle" class="w-3 h-3"></i> Réforme
-          </button>
-        </div>
-
         <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Ajouter un événement :</label>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -935,11 +810,11 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
 
         <div id="active-history-container" class="space-y-2 max-h-48 overflow-y-auto">
-          ${(Array.isArray(tempVehicleHistory) ? tempVehicleHistory : []).map((h, idx) => `
+          ${tempVehicleHistory.map((h, idx) => `
             <div class="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start justify-between gap-3 text-xs">
               <div>
-                <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h ? h.date : '')}</span>
-                <span class="text-slate-700 dark:text-slate-300">${h ? h.event || '' : ''}</span>
+                <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h.date)}</span>
+                <span class="text-slate-700 dark:text-slate-300">${h.event}</span>
               </div>
               <button type="button" onclick="removeVehicleHistory(${idx})" class="p-1 text-slate-400 hover:text-red-500 transition" title="Supprimer">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -949,96 +824,22 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
       </div>
 
-      <!-- 5. AFFECTATIONS DE LIGNES & SERVICES -->
-      <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-        <div class="flex items-center justify-between">
-          <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-            <i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> 5. Affectations de Lignes & Services
-          </h4>
-          <span class="text-xs text-emerald-600 font-bold" id="lines-count-badge">${(Array.isArray(tempVehicleLines) ? tempVehicleLines : []).length} affectation(s)</span>
-        </div>
-
-        <div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">Lignes & services fréquents (cliquez pour pré-remplir la ligne) :</span>
-          <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700" id="preset-lines-container">
-            ${(presets.standardLines || []).map(lineName => {
-              const linesList = Array.isArray(tempVehicleLines) ? tempVehicleLines : [];
-              const isChecked = linesList.some(item => {
-                if (item === lineName) return true;
-                const match = item.match(/^(.*?)\s*\((.*?)\)$/);
-                return match && match[1].trim() === lineName;
-              });
-              return `
-                <button type="button" onclick="toggleVehicleLine('${lineName.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border ${isChecked ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}">
-                  <i data-lucide="${isChecked ? 'check' : 'plus'}" class="w-3.5 h-3.5"></i> ${lineName}
-                </button>
-              `;
-            }).join('')}
-          </div>
-        </div>
-
-        <!-- Formulaire d'ajout d'affectation avec période -->
-        <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
-            <div class="sm:col-span-5">
-              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Ligne / Service affecté *</label>
-              <input type="text" id="new-custom-line-input" placeholder="ex: Liane 1, T1, NVCV..." class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" />
-            </div>
-            <div class="sm:col-span-4">
-              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Période (ex: Septembre 2024 à Juillet 2025)</label>
-              <input type="text" id="new-custom-line-period" placeholder="ex: 09/2024 - 07/2025 ou En cours" class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-            </div>
-            <div class="sm:col-span-3 flex items-end">
-              <button type="button" onclick="handleAddCustomLine()" class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition shadow-sm h-[34px]">
-                <i data-lucide="plus" class="w-4 h-4"></i> Affecter
-              </button>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-            <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer font-medium">
-              <input type="checkbox" id="line-add-to-history" checked class="w-4 h-4 rounded accent-emerald-600" />
-              <span>Consigner aussi automatiquement cette période dans l'<strong>Historique Chronologique</strong></span>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Lignes & affectations de ce véhicule :</span>
-          <div id="active-lines-container" class="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[45px]">
-            ${(Array.isArray(tempVehicleLines) ? tempVehicleLines : []).map((l, idx) => {
-              let lineTitle = l;
-              let periodText = '';
-              const match = l.match(/^(.*?)\s*\((.*?)\)$/);
-              if (match) {
-                lineTitle = match[1].trim();
-                periodText = match[2].trim();
-              }
-              return `
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold shadow-sm">
-                  <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
-                  <strong class="font-bold">${lineTitle}</strong>
-                  ${periodText ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-[11px] font-mono flex items-center gap-1">📅 ${periodText}</span>` : ''}
-                  <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1 transition" title="Supprimer cette affectation">
-                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                  </button>
-                </span>
-              `;
-            }).join('')}
-          </div>
-        </div>
-
-        <input type="hidden" id="adm-lines" value="${Array.isArray(tempVehicleLines) ? tempVehicleLines.join(', ') : ''}" />
-      </div>
-
-      <!-- 6. PHOTOS ET NOTES -->
+      <!-- 5. AFFECTATIONS, PHOTOS ET NOTES -->
       <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
         <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-          <i data-lucide="camera" class="w-4 h-4 text-emerald-600"></i> 6. Photo &amp; Notes Spotteurs
+          <i data-lucide="camera" class="w-4 h-4 text-emerald-600"></i> 5. Lignes, Photo & Notes
         </h4>
 
-        <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Auteur de la Photo / Spotteur</label>
-          <input type="text" id="adm-author" value="${v ? v.photoAuthor || (v.photos && v.photos[0] ? v.photos[0].author : '') || 'Alexs_14' : 'Alexs_14'}" placeholder="ex: Alexs_14, Alexis, Nolhanbj" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Lignes affectées (séparées par virgules)</label>
+            <input type="text" id="adm-lines" value="${v && v.lines ? v.lines.join(', ') : 'L1, L3'}" placeholder="ex: T1, L1, L3, 10, 11EX" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Auteur de la Photo / Spotteur</label>
+            <input type="text" id="adm-author" value="${v ? v.photoAuthor || (v.photos && v.photos[0] ? v.photos[0].author : '') || 'Alexs_14' : 'Alexs_14'}" placeholder="ex: Alexs_14, Alexis, Nolhanbj" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
         </div>
 
         <div>
@@ -1106,219 +907,22 @@ function removeVehicleFeature(feature) {
   refreshVehicleFormFeatures();
 }
 
-function removeVehicleFeatureByIndex(idx) {
-  if (idx >= 0 && idx < tempVehicleFeatures.length) {
-    tempVehicleFeatures.splice(idx, 1);
-    refreshVehicleFormFeatures();
-  }
-}
-
 function refreshVehicleFormFeatures() {
   const container = document.getElementById('active-features-container');
   const countBadge = document.getElementById('features-count-badge');
-  if (countBadge) countBadge.textContent = `${(Array.isArray(tempVehicleFeatures) ? tempVehicleFeatures : []).length} équipement(s)`;
+  if (countBadge) countBadge.textContent = `${tempVehicleFeatures.length} équipement(s)`;
 
   if (container) {
-    container.innerHTML = (Array.isArray(tempVehicleFeatures) ? tempVehicleFeatures : []).map((f, idx) => `
+    container.innerHTML = tempVehicleFeatures.map(f => `
       <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold">
         <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>
         ${f}
-        <button type="button" onclick="removeVehicleFeatureByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1">
+        <button type="button" onclick="removeVehicleFeature('${f}')" class="text-slate-400 hover:text-red-500 ml-1">
           <i data-lucide="x" class="w-3 h-3"></i>
         </button>
       </span>
     `).join('');
     lucide.createIcons();
-  }
-}
-
-function selectVehicleOperator(op) {
-  const input = document.getElementById('adm-operator');
-  if (input) input.value = op;
-  document.querySelectorAll('.quick-op-btn').forEach(btn => {
-    if (btn.textContent.trim() === op) {
-      btn.className = 'quick-op-btn px-2 py-1 rounded-lg text-[11px] font-semibold transition border bg-emerald-600 text-white border-emerald-600 shadow-sm';
-    } else {
-      btn.className = 'quick-op-btn px-2 py-1 rounded-lg text-[11px] font-semibold transition border bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400';
-    }
-  });
-}
-
-function toggleVehicleLine(line) {
-  const inputLine = document.getElementById('new-custom-line-input');
-  const inputPeriod = document.getElementById('new-custom-line-period');
-  if (inputLine) {
-    inputLine.value = line;
-    if (inputPeriod) {
-      inputPeriod.focus();
-    }
-  }
-}
-
-function handleAddCustomLine() {
-  const lineInput = document.getElementById('new-custom-line-input');
-  const periodInput = document.getElementById('new-custom-line-period');
-  const addToHistCb = document.getElementById('line-add-to-history');
-  if (!lineInput) return;
-
-  const lineVal = lineInput.value.trim();
-  const periodVal = periodInput ? periodInput.value.trim() : '';
-  if (!lineVal) return;
-
-  const fullLineEntry = periodVal ? `${lineVal} (${periodVal})` : lineVal;
-
-  if (!Array.isArray(tempVehicleLines)) tempVehicleLines = [];
-  if (!tempVehicleLines.includes(fullLineEntry)) {
-    tempVehicleLines.push(fullLineEntry);
-  }
-
-  // Si la case "Consigner aussi dans l'Historique Chronologique" est cochée
-  if (addToHistCb && addToHistCb.checked) {
-    let histDate = new Date().toISOString().split('T')[0];
-    const yearMatch = periodVal.match(/\b(20\d{2})\b/);
-    if (yearMatch) {
-      const monthMatch = periodVal.match(/\b(0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
-      if (monthMatch) {
-        histDate = `${monthMatch[2]}-${monthMatch[1].padStart(2, '0')}-01`;
-      } else {
-        histDate = `${yearMatch[1]}-09-01`;
-      }
-    }
-    const histEvent = periodVal 
-      ? `Affectation sur la ligne ${lineVal} (${periodVal}).` 
-      : `Affectation sur la ligne ${lineVal}.`;
-
-    if (!Array.isArray(tempVehicleHistory)) tempVehicleHistory = [];
-    tempVehicleHistory.push({ date: histDate, event: histEvent });
-    tempVehicleHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
-    refreshVehicleFormHistory();
-  }
-
-  lineInput.value = '';
-  if (periodInput) periodInput.value = '';
-  refreshVehicleFormLines();
-  showToast(`Affectation enregistrée : ${fullLineEntry}`);
-}
-
-function removeVehicleLineByIndex(idx) {
-  if (Array.isArray(tempVehicleLines) && idx >= 0 && idx < tempVehicleLines.length) {
-    tempVehicleLines.splice(idx, 1);
-    refreshVehicleFormLines();
-  }
-}
-
-function refreshVehicleFormLines() {
-  const container = document.getElementById('active-lines-container');
-  const countBadge = document.getElementById('lines-count-badge');
-  const hiddenInput = document.getElementById('adm-lines');
-  const linesList = Array.isArray(tempVehicleLines) ? tempVehicleLines : [];
-
-  if (countBadge) countBadge.textContent = `${linesList.length} affectation(s)`;
-  if (hiddenInput) hiddenInput.value = linesList.join(', ');
-
-  if (container) {
-    container.innerHTML = linesList.map((l, idx) => {
-      let lineTitle = l;
-      let periodText = '';
-      const match = l.match(/^(.*?)\s*\((.*?)\)$/);
-      if (match) {
-        lineTitle = match[1].trim();
-        periodText = match[2].trim();
-      }
-      return `
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold shadow-sm">
-          <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
-          <strong class="font-bold">${lineTitle}</strong>
-          ${periodText ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-[11px] font-mono flex items-center gap-1">📅 ${periodText}</span>` : ''}
-          <button type="button" onclick="removeVehicleLineByIndex(${idx})" class="text-slate-400 hover:text-red-500 ml-1 transition" title="Supprimer cette affectation">
-            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          </button>
-        </span>
-      `;
-    }).join('');
-  }
-
-  // Mettre à jour l'état visuel des boutons de presets
-  const presetContainer = document.getElementById('preset-lines-container');
-  if (presetContainer) {
-    presetContainer.querySelectorAll('button').forEach(btn => {
-      const lineName = btn.innerText.trim();
-      const isChecked = linesList.some(item => {
-        if (item === lineName) return true;
-        const match = item.match(/^(.*?)\s*\((.*?)\)$/);
-        return match && match[1].trim() === lineName;
-      });
-      if (isChecked) {
-        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-emerald-600 text-white border-emerald-600 shadow-sm';
-        btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> ${lineName}`;
-      } else {
-        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400';
-        btn.innerHTML = `<i data-lucide="plus" class="w-3.5 h-3.5"></i> ${lineName}`;
-      }
-    });
-  }
-
-  lucide.createIcons();
-}
-
-function handleAddOperatorToHistory() {
-  const opInput = document.getElementById('hist-operator-name');
-  const periodInput = document.getElementById('hist-operator-period');
-  const currentOp = document.getElementById('adm-operator')?.value.trim();
-  const opVal = (opInput && opInput.value.trim()) ? opInput.value.trim() : currentOp;
-  const periodVal = periodInput ? periodInput.value.trim() : '';
-
-  if (!opVal) {
-    alert("Veuillez sélectionner ou saisir un exploitant.");
-    return;
-  }
-
-  let histDate = new Date().toISOString().split('T')[0];
-  const yearMatch = periodVal.match(/\b(20\d{2})\b/);
-  if (yearMatch) {
-    const monthMatch = periodVal.match(/\b(0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
-    if (monthMatch) {
-      histDate = `${monthMatch[2]}-${monthMatch[1].padStart(2, '0')}-01`;
-    } else {
-      histDate = `${yearMatch[1]}-01-01`;
-    }
-  }
-
-  const histEvent = periodVal 
-    ? `Exploité par ${opVal} (${periodVal}).` 
-    : `Exploité par ${opVal}.`;
-
-  if (!Array.isArray(tempVehicleHistory)) tempVehicleHistory = [];
-  tempVehicleHistory.push({ date: histDate, event: histEvent });
-  tempVehicleHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
-  refreshVehicleFormHistory();
-  if (periodInput) periodInput.value = '';
-  showToast(`Historique exploitant enregistré : ${histEvent}`);
-}
-
-function insertHistoryTemplate(type) {
-  const eventInput = document.getElementById('new-history-event');
-  const dateInput = document.getElementById('new-history-date');
-  if (!eventInput) return;
-
-  const currentOp = document.getElementById('adm-operator')?.value || 'Keolis Caen la mer';
-  const currentLines = Array.isArray(tempVehicleLines) && tempVehicleLines.length > 0 ? tempVehicleLines[0] : 'Liane 1';
-
-  if (type === 'affectation') {
-    eventInput.value = `Affectation sur la ligne ${currentLines} (Septembre 2024 à Juillet 2025).`;
-    eventInput.focus();
-  } else if (type === 'exploitant') {
-    eventInput.value = `Exploité par ${currentOp} (2019 à 2024).`;
-    eventInput.focus();
-  } else if (type === 'service') {
-    eventInput.value = 'Mise en service commerciale sur le réseau Twisto.';
-    eventInput.focus();
-  } else if (type === 'livree') {
-    eventInput.value = 'Changement de livrée et pose des nouvelles girouettes LED couleur.';
-    eventInput.focus();
-  } else if (type === 'reforme') {
-    eventInput.value = 'Réforme du véhicule et retrait du service commercial.';
-    eventInput.focus();
   }
 }
 
@@ -1346,14 +950,14 @@ function removeVehicleHistory(index) {
 function refreshVehicleFormHistory() {
   const container = document.getElementById('active-history-container');
   const countBadge = document.getElementById('history-count-badge');
-  if (countBadge) countBadge.textContent = `${(Array.isArray(tempVehicleHistory) ? tempVehicleHistory : []).length} événement(s)`;
+  if (countBadge) countBadge.textContent = `${tempVehicleHistory.length} événement(s)`;
 
   if (container) {
-    container.innerHTML = (Array.isArray(tempVehicleHistory) ? tempVehicleHistory : []).map((h, idx) => `
+    container.innerHTML = tempVehicleHistory.map((h, idx) => `
       <div class="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start justify-between gap-3 text-xs">
         <div>
-          <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h ? h.date : '')}</span>
-          <span class="text-slate-700 dark:text-slate-300">${h ? h.event || '' : ''}</span>
+          <span class="font-bold text-emerald-600 dark:text-emerald-400 block font-mono">${formatDate(h.date)}</span>
+          <span class="text-slate-700 dark:text-slate-300">${h.event}</span>
         </div>
         <button type="button" onclick="removeVehicleHistory(${idx})" class="p-1 text-slate-400 hover:text-red-500 transition" title="Supprimer">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -1394,7 +998,7 @@ function handleSaveVehicle(e, editId) {
   if (operator) addPresetItem('operators', operator);
 
   const fullModelName = brand && !modelOnly.startsWith(brand) ? `${brand} ${modelOnly}` : modelOnly;
-  const lines = (Array.isArray(tempVehicleLines) && tempVehicleLines.length > 0) ? [...tempVehicleLines] : (linesRaw ? linesRaw.split(',').map(l => l.trim()).filter(l => l.length > 0) : []);
+  const lines = linesRaw ? linesRaw.split(',').map(l => l.trim()).filter(l => l.length > 0) : [];
 
   const updatedVehicleData = {
     number: num,
@@ -1405,9 +1009,10 @@ function handleSaveVehicle(e, editId) {
     energy: energy,
     status: status,
     livery: livery,
-    plate: reg,
     registration: reg,
+    plate: reg,
     vin: vin,
+    chassis: vin,
     deliveryDate: deliveryDate,
     serviceDate: serviceDate,
     inServiceDate: serviceDate,
@@ -1417,10 +1022,11 @@ function handleSaveVehicle(e, editId) {
     capacity: capacity,
     length: length,
     doors: doors,
-    equipments: [...tempVehicleFeatures],
     features: [...tempVehicleFeatures],
+    equipments: [...tempVehicleFeatures],
     history: tempVehicleHistory.length > 0 ? [...tempVehicleHistory] : [{ date: serviceDate, event: `Mise en service sur le réseau ${network}.` }],
     photo: photo,
+    photoAuthor: author,
     notes: notes
   };
 
@@ -1485,13 +1091,7 @@ function handleDeleteVehicle(vehicleId) {
 function loadLineForEdit(id) {
   const line = linesData.find(l => l.id === id || l.number === id);
   if (line && line.stops) {
-    if (Array.isArray(line.stops)) {
-      tempLineStops = [...line.stops];
-    } else if (typeof line.stops === 'string') {
-      tempLineStops = line.stops.split(/,|\n/).map(s => s.trim()).filter(Boolean);
-    } else {
-      tempLineStops = ["Terminus A", "Arrêt 1", "Arrêt 2", "Terminus B"];
-    }
+    tempLineStops = [...line.stops];
   } else {
     tempLineStops = ["Terminus A", "Arrêt 1", "Arrêt 2", "Terminus B"];
   }
@@ -1505,72 +1105,6 @@ function getLineTabContentHtml() {
   }
 }
 
-let lineSortColumn = null;
-let lineSortDirection = 'asc';
-
-function handleSortLinesBy(column) {
-  if (lineSortColumn === column) {
-    lineSortDirection = lineSortDirection === 'asc' ? 'desc' : 'asc';
-  } else {
-    lineSortColumn = column;
-    lineSortDirection = 'asc';
-  }
-
-  linesData.sort((a, b) => {
-    let valA = '', valB = '';
-    if (column === 'number') {
-      const scoreA = typeof getLineOrderScore === 'function' ? getLineOrderScore(a) : 0;
-      const scoreB = typeof getLineOrderScore === 'function' ? getLineOrderScore(b) : 0;
-      return lineSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA;
-    } else if (column === 'name') {
-      valA = String(a.name || '');
-      valB = String(b.name || '');
-    } else if (column === 'category') {
-      valA = String(a.category || '');
-      valB = String(b.category || '');
-    } else if (column === 'stops') {
-      valA = (a.stops ? a.stops.length : a.stopsCount) || 0;
-      valB = (b.stops ? b.stops.length : b.stopsCount) || 0;
-      return lineSortDirection === 'asc' ? valA - valB : valB - valA;
-    } else if (column === 'date') {
-      valA = String(a.planDate || '');
-      valB = String(b.planDate || '');
-    }
-    const cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true });
-    return lineSortDirection === 'asc' ? cmp : -cmp;
-  });
-
-  localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
-  localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
-  renderAdminModalContent();
-  if (typeof renderLines === 'function') renderLines();
-}
-
-function handleSortLinesOfficial() {
-  if (typeof sortLinesOfficial === 'function') {
-    linesData = sortLinesOfficial(linesData);
-  } else {
-    linesData.sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
-  }
-  lineSortColumn = null;
-  localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
-  localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
-  renderAdminModalContent();
-  if (typeof renderLines === 'function') renderLines();
-  if (typeof showToast === 'function') showToast("Lignes ordonnées avec succès selon le plan officiel du réseau Twisto (T1, 1, 2... 30...) !");
-}
-
-function handleMoveLine(idx, dir) {
-  const targetIdx = idx + dir;
-  if (targetIdx < 0 || targetIdx >= linesData.length) return;
-  const item = linesData.splice(idx, 1)[0];
-  linesData.splice(targetIdx, 0, item);
-  localStorage.setItem('histo14_lines_data', JSON.stringify(linesData));
-  localStorage.setItem('histo14_lines_data_v3', JSON.stringify(linesData));
-  renderAdminModalContent();
-  if (typeof renderLines === 'function') renderLines();
-}
-
 function getLineListHtml() {
   return `
     <div class="space-y-4">
@@ -1579,11 +1113,8 @@ function getLineListHtml() {
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
           <input type="text" id="adm-line-search" oninput="filterAdminLineList(this.value)" placeholder="Rechercher une ligne (ex: T1, 1, 12, Express)..." class="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-medium" />
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
           <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">${linesData.length} ligne(s)</span>
-          <button type="button" onclick="handleSortLinesOfficial()" class="px-3 py-2 bg-emerald-100 dark:bg-emerald-950/80 hover:bg-emerald-200 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm whitespace-nowrap" title="Rétablir l'ordre officiel du réseau : Tram T1-T3, Lianes 1-4, Bus 5-37, etc.">
-            <i data-lucide="arrow-down-up" class="w-3.5 h-3.5"></i> Trier Ordre Réseau (T1.. 1.. 30..)
-          </button>
           <button type="button" onclick="startNewLineForm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm whitespace-nowrap">
             <i data-lucide="plus-circle" class="w-4 h-4"></i> + Nouvelle Ligne
           </button>
@@ -1594,27 +1125,17 @@ function getLineListHtml() {
         <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
           <thead class="bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
             <tr>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('number')" title="Cliquer pour trier">
-                Indice ↕
-              </th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('name')" title="Cliquer pour trier">
-                Nom de la Ligne ↕
-              </th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('category')" title="Cliquer pour trier">
-                Catégorie ↕
-              </th>
+              <th class="py-2.5 px-3">Indice</th>
+              <th class="py-2.5 px-3">Nom de la Ligne</th>
+              <th class="py-2.5 px-3">Catégorie</th>
               <th class="py-2.5 px-3">Terminus</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('stops')" title="Cliquer pour trier">
-                Arrêts ↕
-              </th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-emerald-600 select-none" onclick="handleSortLinesBy('date')" title="Cliquer pour trier">
-                Date Plan ↕
-              </th>
+              <th class="py-2.5 px-3">Arrêts</th>
+              <th class="py-2.5 px-3">Date Plan</th>
               <th class="py-2.5 px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="adm-line-table-body" class="divide-y divide-slate-100 dark:divide-slate-800">
-            ${linesData.map((l, idx) => renderAdminLineRow(l, idx)).join('')}
+            ${linesData.map(l => renderAdminLineRow(l)).join('')}
           </tbody>
         </table>
       </div>
@@ -1622,22 +1143,13 @@ function getLineListHtml() {
   `;
 }
 
-function renderAdminLineRow(l, idx = 0) {
-  const canUp = idx > 0;
-  const canDown = idx < linesData.length - 1;
-
+function renderAdminLineRow(l) {
   return `
     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
       <td class="py-2.5 px-3 font-bold">
-        <div class="flex items-center gap-1.5">
-          <div class="flex flex-col gap-0.5 mr-1">
-            <button type="button" onclick="handleMoveLine(${idx}, -1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canUp ? 'opacity-20 cursor-not-allowed' : ''}" ${!canUp ? 'disabled' : ''} title="Monter d'un rang">▲</button>
-            <button type="button" onclick="handleMoveLine(${idx}, 1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canDown ? 'opacity-20 cursor-not-allowed' : ''}" ${!canDown ? 'disabled' : ''} title="Descendre d'un rang">▼</button>
-          </div>
-          <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold shadow-sm" style="background-color: ${l.color}; color: ${l.textColor || '#FFF'};">
-            ${l.number}
-          </span>
-        </div>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold shadow-sm" style="background-color: ${l.color}; color: ${l.textColor || '#FFF'};">
+          ${l.number}
+        </span>
       </td>
       <td class="py-2.5 px-3 font-bold text-slate-900 dark:text-white">${l.name}</td>
       <td class="py-2.5 px-3 font-semibold text-slate-500">${l.category}</td>
@@ -1646,11 +1158,8 @@ function renderAdminLineRow(l, idx = 0) {
       <td class="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-semibold">${l.planDate || '-'}</td>
       <td class="py-2.5 px-3 text-right">
         <div class="flex items-center justify-end gap-1.5">
-          <button type="button" onclick="startEditLine('${l.id}')" class="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1" title="Modifier les informations de la ligne">
+          <button type="button" onclick="startEditLine('${l.id}')" class="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1">
             <i data-lucide="edit-2" class="w-3 h-3"></i> Modifier
-          </button>
-          <button type="button" onclick="openPlanEditorForLine('${l.id}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm" title="Ouvrir directement l'Éditeur de Plan & Tracé officiel">
-            <i data-lucide="pen-tool" class="w-3 h-3"></i> Plan
           </button>
           <button type="button" onclick="handleDeleteLine('${l.id}')" class="p-1 text-slate-400 hover:text-red-600 transition" title="Supprimer">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -1667,35 +1176,29 @@ function filterAdminLineList(q) {
   if (!tbody) return;
 
   const matches = linesData.filter(l => 
-    String(l.number || '').toLowerCase().includes(query) ||
-    String(l.name || '').toLowerCase().includes(query) ||
-    (l.category && String(l.category).toLowerCase().includes(query)) ||
-    (l.terminusA && String(l.terminusA).toLowerCase().includes(query)) ||
-    (l.terminusB && String(l.terminusB).toLowerCase().includes(query))
+    l.number.toLowerCase().includes(query) ||
+    l.name.toLowerCase().includes(query) ||
+    (l.category && l.category.toLowerCase().includes(query)) ||
+    (l.terminusA && l.terminusA.toLowerCase().includes(query)) ||
+    (l.terminusB && l.terminusB.toLowerCase().includes(query))
   );
 
-  tbody.innerHTML = matches.map((l, idx) => renderAdminLineRow(l, idx)).join('');
+  tbody.innerHTML = matches.map(l => renderAdminLineRow(l)).join('');
   lucide.createIcons();
 }
 
 function startNewLineForm() {
-  activeAdminTab = 'line';
   editingLineId = null;
   tempLineStops = ["Terminus A", "Arrêt intermédiaire 1", "Arrêt intermédiaire 2", "Terminus B"];
   lineAdminSubView = 'form';
   renderAdminModalContent();
-  const container = document.getElementById('admin-form-container');
-  if (container) container.scrollTop = 0;
 }
 
 function startEditLine(id) {
-  activeAdminTab = 'line';
   editingLineId = id;
   loadLineForEdit(id);
   lineAdminSubView = 'form';
   renderAdminModalContent();
-  const container = document.getElementById('admin-form-container');
-  if (container) container.scrollTop = 0;
 }
 
 function getLineFormHtml(editId = null) {
@@ -1708,20 +1211,13 @@ function getLineFormHtml(editId = null) {
   return `
     <form id="add-line-form" onsubmit="handleSaveLine(event, '${editId || ''}')" class="space-y-5 max-h-[68vh] overflow-y-auto pr-1">
       
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+      <div class="flex items-center justify-between bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
         <button type="button" onclick="lineAdminSubView = 'list'; renderAdminModalContent();" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1.5">
           <i data-lucide="arrow-left" class="w-4 h-4"></i> Retour à la liste des lignes
         </button>
-        <div class="flex items-center gap-2">
-          ${isEditing ? `
-            <button type="button" onclick="openPlanEditorForLine('${l.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
-              <i data-lucide="pen-tool" class="w-3.5 h-3.5"></i> Éditer le Tracé &amp; Plan Visuel
-            </button>
-          ` : ''}
-          <span class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-            ${isEditing ? `Modification Ligne ${l.number} (${l.name})` : '+ Création d\'une nouvelle ligne'}
-          </span>
-        </div>
+        <span class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
+          ${isEditing ? `Modification Ligne ${l.number} (${l.name})` : '+ Création d\'une nouvelle ligne'}
+        </span>
       </div>
 
       <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
@@ -1872,17 +1368,14 @@ function handleSaveLine(e, editId) {
   const stock = stockRaw ? stockRaw.split(',').map(s => s.trim()).filter(s => s.length > 0) : ['Iveco Urbanway 12 GNV'];
   const stops = stopsRaw ? stopsRaw.split(/,|\n/).map(s => s.trim()).filter(s => s.length > 0) : [termA, "Arrêt intermédiaire", termB];
 
-  const existingIdx = linesData.findIndex(l => (editId && l.id === editId) || l.number === num);
-  const existing = existingIdx !== -1 ? linesData[existingIdx] : null;
-
   const lineObj = {
-    id: editId || (existing ? existing.id : `L${num.replace(/\s+/g, '')}`),
+    id: editId || `L${num.replace(/\s+/g, '')}`,
     number: num,
     name: name,
     type: category === 'Tramway' ? 'Tramway' : (category.includes('Flex') || category.includes('Navette') ? 'Minibus' : 'Bus'),
     category: category,
     color: color,
-    textColor: (existing && existing.textColor) ? existing.textColor : '#FFFFFF',
+    textColor: '#FFFFFF',
     terminusA: termA,
     terminusB: termB,
     stationsCount: stops.length,
@@ -1894,13 +1387,10 @@ function handleSaveLine(e, editId) {
     stops: stops,
     rollingStock: stock,
     description: desc,
-    history: existing ? (existing.history || `Ligne du réseau Twisto.`) : `Ligne du réseau Twisto.`,
-    connections: existing && existing.connections ? existing.connections : {},
-    accessibility: existing && existing.accessibility ? existing.accessibility : [],
-    validFrom: existing && existing.validFrom ? existing.validFrom : '31 août 2026',
-    validUntil: existing && existing.validUntil ? existing.validUntil : '27 juin 2027'
+    history: `Ligne du réseau Twisto.`
   };
 
+  const existingIdx = linesData.findIndex(l => l.id === lineObj.id || l.number === num);
   if (existingIdx !== -1) {
     linesData[existingIdx] = lineObj;
     showToast(`La ligne ${num} a été mise à jour !`);
@@ -2612,25 +2102,6 @@ function getPresetsTabContentHtml(presets) {
           `).join('')}
         </div>
       </div>
-
-      <!-- Section 4: Lignes & Affectations Fréquentes -->
-      <div class="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <h5 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Lignes & Affectations Fréquentes (${(presets.standardLines || []).length})</h5>
-        <div class="flex gap-2">
-          <input type="text" id="new-preset-line-input" placeholder="Ajouter une ligne (ex: T1, Liane 1, NVCV...)" class="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-          <button type="button" onclick="handleAddPreset('standardLines', 'new-preset-line-input')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm">
-            <i data-lucide="plus" class="w-4 h-4"></i> Ajouter
-          </button>
-        </div>
-        <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-          ${(presets.standardLines || []).map(l => `
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
-              ${l}
-              <button type="button" onclick="deletePresetItem('standardLines', '${l}')" class="text-slate-400 hover:text-red-500 transition"><i data-lucide="x" class="w-3 h-3"></i></button>
-            </span>
-          `).join('')}
-        </div>
-      </div>
     </div>
   `;
 }
@@ -2963,7 +2434,11 @@ function handleFactoryReset() {
 
 const SITE_SETTINGS_KEY = 'histo14_site_settings_v1';
 
-function getDefaultSiteSettings() {
+function getSiteSettings() {
+  try {
+    const raw = localStorage.getItem(SITE_SETTINGS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
   return {
     siteName: 'Histo14Bus',
     siteVersion: 'v2.0',
@@ -2986,43 +2461,8 @@ function getDefaultSiteSettings() {
       gallery: 'Galerie',
       about: 'Équipe'
     },
-    hiddenTabs: [],
-    pageTexts: {
-      heroBadge: 'Données Réseau Normandie & Twisto à jour 2026',
-      heroTitle: "L'Observatoire des Réseaux",
-      heroTitleAccent: 'Normands',
-      heroSubtitle: 'Base photographique et technique complète des bus, tramways et matériels roulants de Twisto (Caen la mer), Astuce (Rouen), LiA (Le Havre) et Nomad Car.',
-      linesSectionTitle: 'Lignes du Réseau Twisto',
-      linesEditionBadge: 'Édition 2025/2026',
-      linesDescription: 'Plans officiels, tracés thermomètres, arrêts et fiches des lignes Tramway, Lianes, Urbaines, Express, Navettes et Twistoflex (twisto.fr).',
-      movementsSectionTitle: 'Mouvements & Mutations de Parc',
-      movementsDescription: 'Suivi chronologique des arrivées de matériel neuf, des réformes et des transferts entre réseaux normands (Twisto, Astuce Rouen, LiA Le Havre).',
-      newsSectionTitle: 'Le MAG & Actualités Twisto',
-      newsDescription: 'Dossiers spéciaux, projets d\'extension (Tramway 2029), bilans écologiques et évolutions d\'itinéraires.',
-      gallerySectionTitle: 'Galerie Photographique & Spotteurs',
-      galleryDescription: 'Clichés haute résolution des bus et tramways sur le réseau, capturés par la communauté d\'amateurs passionnés.',
-      aboutSectionTitle: "À Propos d'Histo14Bus",
-      aboutDescription: "Histo14Bus est un projet indépendant et passionné d'archive, de référencement et d'actualités dédié aux transports urbains du Calvados (14) et de Normandie, avec une priorité accordée au réseau Twisto de la communauté urbaine Caen la mer, ainsi qu'aux réseaux Astuce Rouen, LiA Le Havre et Nomad Car."
-    }
+    hiddenTabs: []
   };
-}
-
-function getSiteSettings() {
-  const defaults = getDefaultSiteSettings();
-  try {
-    const raw = localStorage.getItem(SITE_SETTINGS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        ...defaults,
-        ...parsed,
-        navLabels: { ...defaults.navLabels, ...(parsed.navLabels || {}) },
-        mobileNavLabels: { ...defaults.mobileNavLabels, ...(parsed.mobileNavLabels || {}) },
-        pageTexts: { ...defaults.pageTexts, ...(parsed.pageTexts || {}) }
-      };
-    }
-  } catch(e) {}
-  return defaults;
 }
 
 function saveSiteSettings(settings) {
@@ -3059,11 +2499,13 @@ function applySiteSettings(settings) {
   navBtns.forEach(btn => {
     const tab = btn.dataset.tab;
     if (tab && settings.navLabels && settings.navLabels[tab]) {
+      // Update text, preserving the icon
       const icon = btn.querySelector('i');
       btn.innerHTML = '';
       if (icon) btn.appendChild(icon);
       btn.appendChild(document.createTextNode(' ' + settings.navLabels[tab]));
     }
+    // Hidden tabs
     if (settings.hiddenTabs && settings.hiddenTabs.includes(tab)) {
       btn.style.display = 'none';
     } else {
@@ -3087,55 +2529,6 @@ function applySiteSettings(settings) {
       btn.style.display = '';
     }
   });
-
-  // Page Texts (Textes des pages du site)
-  if (settings.pageTexts) {
-    const pt = settings.pageTexts;
-    const heroBadgeEl = document.getElementById('page-hero-badge');
-    if (heroBadgeEl && pt.heroBadge) heroBadgeEl.textContent = pt.heroBadge;
-
-    const heroTitleEl = document.getElementById('page-hero-title');
-    if (heroTitleEl && pt.heroTitle) heroTitleEl.textContent = pt.heroTitle;
-
-    const heroAccentEl = document.getElementById('page-hero-accent');
-    if (heroAccentEl && pt.heroTitleAccent) heroAccentEl.textContent = pt.heroTitleAccent;
-
-    const heroSubEl = document.getElementById('page-hero-subtitle');
-    if (heroSubEl && pt.heroSubtitle) heroSubEl.innerHTML = pt.heroSubtitle;
-
-    const linesTitleEl = document.getElementById('page-lines-title');
-    if (linesTitleEl && pt.linesSectionTitle) linesTitleEl.textContent = pt.linesSectionTitle;
-
-    const linesBadgeEl = document.getElementById('page-lines-edition');
-    if (linesBadgeEl && pt.linesEditionBadge) linesBadgeEl.textContent = pt.linesEditionBadge;
-
-    const linesDescEl = document.getElementById('page-lines-desc');
-    if (linesDescEl && pt.linesDescription) linesDescEl.textContent = pt.linesDescription;
-
-    const movTitleEl = document.getElementById('page-movements-title');
-    if (movTitleEl && pt.movementsSectionTitle) movTitleEl.textContent = pt.movementsSectionTitle;
-
-    const movDescEl = document.getElementById('page-movements-desc');
-    if (movDescEl && pt.movementsDescription) movDescEl.textContent = pt.movementsDescription;
-
-    const newsTitleEl = document.getElementById('page-news-title');
-    if (newsTitleEl && pt.newsSectionTitle) newsTitleEl.textContent = pt.newsSectionTitle;
-
-    const newsDescEl = document.getElementById('page-news-desc');
-    if (newsDescEl && pt.newsDescription) newsDescEl.textContent = pt.newsDescription;
-
-    const galTitleEl = document.getElementById('page-gallery-title');
-    if (galTitleEl && pt.gallerySectionTitle) galTitleEl.textContent = pt.gallerySectionTitle;
-
-    const galDescEl = document.getElementById('page-gallery-desc');
-    if (galDescEl && pt.galleryDescription) galDescEl.textContent = pt.galleryDescription;
-
-    const aboutTitleEl = document.getElementById('page-about-title');
-    if (aboutTitleEl && pt.aboutSectionTitle) aboutTitleEl.textContent = pt.aboutSectionTitle;
-
-    const aboutDescEl = document.getElementById('page-about-desc');
-    if (aboutDescEl && pt.aboutDescription) aboutDescEl.innerHTML = pt.aboutDescription;
-  }
 
   // Document title
   document.title = `${settings.siteName || 'Histo14Bus'} — Parc & Réseau Normandie`;
@@ -3218,107 +2611,6 @@ function getSiteTabContentHtml() {
         </div>
       </div>
 
-      <!-- Section: Textes des Pages -->
-      <div class="bg-blue-50 dark:bg-blue-950/30 rounded-2xl p-5 border border-blue-200 dark:border-blue-800 space-y-4">
-        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-          <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i> Textes des Pages du Site
-        </h4>
-
-        <!-- Hero Banner -->
-        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
-          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">🏠 Bannière d'accueil (Hero)</p>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Badge d'accroche</label>
-            <input type="text" name="heroBadge" value="${(s.pageTexts && s.pageTexts.heroBadge) || 'Données Réseau Normandie & Twisto à jour 2026'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre principal</label>
-              <input type="text" name="heroTitle" value="${(s.pageTexts && s.pageTexts.heroTitle) || "L'Observatoire des Réseaux"}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Mot en vert (accent)</label>
-              <input type="text" name="heroTitleAccent" value="${(s.pageTexts && s.pageTexts.heroTitleAccent) || 'Normands'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description sous le titre</label>
-            <textarea name="heroSubtitle" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.heroSubtitle) || 'Base photographique et technique complète des bus, tramways et matériels roulants de Twisto (Caen la mer), Astuce (Rouen), LiA (Le Havre) et Nomad Car.'}</textarea>
-          </div>
-        </div>
-
-        <!-- Section Lignes -->
-        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
-          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">🚌 Section Lignes & Plans</p>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
-              <input type="text" name="linesSectionTitle" value="${(s.pageTexts && s.pageTexts.linesSectionTitle) || 'Lignes du Réseau Twisto'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Badge édition</label>
-              <input type="text" name="linesEditionBadge" value="${(s.pageTexts && s.pageTexts.linesEditionBadge) || 'Édition 2025/2026'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
-            <textarea name="linesDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.linesDescription) || 'Plans officiels, tracés thermomètres, arrêts et fiches des lignes Tramway, Lianes, Urbaines, Express, Navettes et Twistoflex (twisto.fr).'}</textarea>
-          </div>
-        </div>
-
-        <!-- Section Mouvements -->
-        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
-          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">🔄 Section Mouvements</p>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
-            <input type="text" name="movementsSectionTitle" value="${(s.pageTexts && s.pageTexts.movementsSectionTitle) || 'Mouvements & Mutations de Parc'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
-            <textarea name="movementsDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.movementsDescription) || 'Suivi chronologique des arrivées de matériel neuf, des réformes et des transferts entre réseaux normands (Twisto, Astuce Rouen, LiA Le Havre).'}</textarea>
-          </div>
-        </div>
-
-        <!-- Section Le MAG -->
-        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
-          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">📰 Section Le MAG</p>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
-            <input type="text" name="newsSectionTitle" value="${(s.pageTexts && s.pageTexts.newsSectionTitle) || 'Le MAG & Actualités Twisto'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
-            <textarea name="newsDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.newsDescription) || 'Dossiers spéciaux, projets d\'extension (Tramway 2029), bilans écologiques et évolutions d\'itinéraires.'}</textarea>
-          </div>
-        </div>
-
-        <!-- Section Galerie -->
-        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
-          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">📸 Section Galerie Photos</p>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
-            <input type="text" name="gallerySectionTitle" value="${(s.pageTexts && s.pageTexts.gallerySectionTitle) || 'Galerie Photographique & Spotteurs'}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description</label>
-            <textarea name="galleryDescription" rows="2" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.galleryDescription) || 'Clichés haute résolution des bus et tramways sur le réseau, capturés par la communauté d\'amateurs passionnés.'}</textarea>
-          </div>
-        </div>
-
-        <!-- Section À Propos -->
-        <div class="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
-          <p class="text-xs font-black text-blue-600 uppercase tracking-wide">ℹ️ Section À Propos / Équipe</p>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Titre de la section</label>
-            <input type="text" name="aboutSectionTitle" value="${(s.pageTexts && s.pageTexts.aboutSectionTitle) || "À Propos d'Histo14Bus"}" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Description / Présentation</label>
-            <textarea name="aboutDescription" rows="3" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none">${(s.pageTexts && s.pageTexts.aboutDescription) || "<strong>Histo14Bus</strong> est un projet indépendant et passionné d'archive, de référencement et d'actualités dédié aux transports urbains du Calvados (14) et de Normandie."}</textarea>
-          </div>
-        </div>
-      </div>
-
       <!-- Save Button -->
       <div class="flex items-center justify-between pt-2">
         <button type="button" onclick="resetSiteSettings()" class="px-4 py-2 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-red-200 dark:border-red-800">
@@ -3351,24 +2643,6 @@ function handleSaveSiteSettings(event) {
     if (hiddenCb && hiddenCb.checked) hiddenTabs.push(tab);
   });
 
-  const pageTexts = {
-    heroBadge: form.querySelector('[name="heroBadge"]')?.value.trim() || '',
-    heroTitle: form.querySelector('[name="heroTitle"]')?.value.trim() || '',
-    heroTitleAccent: form.querySelector('[name="heroTitleAccent"]')?.value.trim() || '',
-    heroSubtitle: form.querySelector('[name="heroSubtitle"]')?.value.trim() || '',
-    linesSectionTitle: form.querySelector('[name="linesSectionTitle"]')?.value.trim() || '',
-    linesEditionBadge: form.querySelector('[name="linesEditionBadge"]')?.value.trim() || '',
-    linesDescription: form.querySelector('[name="linesDescription"]')?.value.trim() || '',
-    movementsSectionTitle: form.querySelector('[name="movementsSectionTitle"]')?.value.trim() || '',
-    movementsDescription: form.querySelector('[name="movementsDescription"]')?.value.trim() || '',
-    newsSectionTitle: form.querySelector('[name="newsSectionTitle"]')?.value.trim() || '',
-    newsDescription: form.querySelector('[name="newsDescription"]')?.value.trim() || '',
-    gallerySectionTitle: form.querySelector('[name="gallerySectionTitle"]')?.value.trim() || '',
-    galleryDescription: form.querySelector('[name="galleryDescription"]')?.value.trim() || '',
-    aboutSectionTitle: form.querySelector('[name="aboutSectionTitle"]')?.value.trim() || '',
-    aboutDescription: form.querySelector('[name="aboutDescription"]')?.value.trim() || ''
-  };
-
   const settings = {
     siteName: form.querySelector('[name="siteName"]')?.value.trim() || 'Histo14Bus',
     siteVersion: form.querySelector('[name="siteVersion"]')?.value.trim() || 'v2.0',
@@ -3377,8 +2651,7 @@ function handleSaveSiteSettings(event) {
     footerCredit: form.querySelector('[name="footerCredit"]')?.value.trim() || 'Développé par Nolhanbj • Données informatives.',
     navLabels,
     mobileNavLabels,
-    hiddenTabs,
-    pageTexts
+    hiddenTabs
   };
 
   saveSiteSettings(settings);
@@ -3821,18 +3094,10 @@ function renderPlanEditorPreview(line) {
     validUntil: document.getElementById('pe-valid-until') ? document.getElementById('pe-valid-until').value : (line.validUntil || '27 juin 2027')
   };
   return `
-    <div class="naotc-plan-scroll" style="padding: 24px 20px 120px; min-height: 290px;">
+    <div class="naotc-plan-scroll" style="padding: 44px 20px 16px;">
       ${typeof renderNaotcPlan === 'function' ? renderNaotcPlan(dummyLine, currentEditingStops) : '<p class="text-xs">Chargement plan...</p>'}
     </div>
   `;
-}
-
-function handleMoveStop(idx, dir) {
-  const targetIdx = idx + dir;
-  if (targetIdx < 0 || targetIdx >= currentEditingStops.length) return;
-  const item = currentEditingStops.splice(idx, 1)[0];
-  currentEditingStops.splice(targetIdx, 0, item);
-  refreshPlanEditorUi();
 }
 
 function renderPlanEditorStopsList() {
@@ -3845,16 +3110,10 @@ function renderPlanEditorStopsList() {
     const isTermB = idx === currentEditingStops.length - 1;
     const conns = (currentEditingConnections[stop] || []).join(', ');
     const isPmr = currentEditingAccessibility.includes(stop);
-    const canUp = idx > 0;
-    const canDown = idx < currentEditingStops.length - 1;
 
     return `
       <div class="naotc-editor-stop-row flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs" draggable="true" ondragstart="handleStopDragStart(event, ${idx})" ondragover="handleStopDragOver(event, ${idx})" ondrop="handleStopDrop(event, ${idx})">
-        <span class="cursor-grab text-slate-400 hover:text-slate-600 px-1 font-bold select-none" title="Glisser pour déplacer">⋮⋮</span>
-        <div class="flex flex-col gap-0.5">
-          <button type="button" onclick="handleMoveStop(${idx}, -1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canUp ? 'opacity-20 cursor-not-allowed' : ''}" ${!canUp ? 'disabled' : ''} title="Monter d'un rang">▲</button>
-          <button type="button" onclick="handleMoveStop(${idx}, 1)" class="text-[9px] leading-none p-0.5 text-slate-400 hover:text-emerald-600 ${!canDown ? 'opacity-20 cursor-not-allowed' : ''}" ${!canDown ? 'disabled' : ''} title="Descendre d'un rang">▼</button>
-        </div>
+        <span class="cursor-grab text-slate-400 hover:text-slate-600 px-1 font-bold">⋮⋮</span>
         <span class="w-5 text-center font-bold text-slate-400 text-[10px]">${idx + 1}</span>
         <div class="flex-1 min-w-0">
           <input type="text" value="${stop}" onchange="handleUpdateStopName(${idx}, this.value)" class="w-full px-2 py-1 bg-transparent font-bold text-slate-800 dark:text-slate-100 border-b border-transparent focus:border-emerald-500 outline-none truncate" />
@@ -4015,7 +3274,10 @@ function exportPlanJson() {
 window.addEventListener('DOMContentLoaded', () => {
   updateAdminUI();
   // Apply saved site settings on page load
-  applySiteSettings(getSiteSettings());
+  const savedSettings = getSiteSettings();
+  if (localStorage.getItem(SITE_SETTINGS_KEY)) {
+    applySiteSettings(savedSettings);
+  }
   // Apply saved appearance settings on page load
   if (typeof applyAppearanceSettings === 'function') {
     applyAppearanceSettings(getAppearanceSettings());

@@ -98,63 +98,6 @@ function getLineCardTitle(line) {
   return line.name ? line.name.toUpperCase() : `LIGNE ${line.number}`;
 }
 
-function getLineOrderScore(line) {
-  if (!line) return 999999;
-  const numStr = String(line.number || line.id || '').trim().toUpperCase();
-  const cat = String(line.category || '').toLowerCase();
-
-  // 1. Tramway (T1, T2, T3...)
-  if (cat.includes('tram') || numStr.startsWith('T')) {
-    const tNum = parseInt(numStr.replace(/\D/g, '')) || 0;
-    return 1000 + tNum;
-  }
-
-  // 2. Lianes (1, 2, 3, 4)
-  if (cat.includes('liane') || ['1', '2', '3', '4'].includes(numStr)) {
-    const lNum = parseInt(numStr) || 0;
-    return 2000 + lNum;
-  }
-
-  // 3. Urbaines & Express (5 à 23)
-  const n = parseInt(numStr);
-  if (!isNaN(n) && n >= 5 && n < 30) {
-    const isExpress = numStr.includes('EX') ? 0.5 : 0;
-    return 3000 + n * 10 + isExpress;
-  }
-
-  // 4. Périurbaines (30 à 39)
-  if (cat.includes('périurbaine') || (!isNaN(n) && n >= 30 && n < 40)) {
-    return 4000 + (n || 0);
-  }
-
-  // 5. Navettes (40-49, NVCV)
-  if (cat.includes('navette') || numStr.startsWith('NV') || (!isNaN(n) && n >= 40 && n < 100)) {
-    return 5000 + (n || 0);
-  }
-
-  // 6. Flex / Nocturne
-  if (cat.includes('flex') || cat.includes('noct') || numStr.includes('FLEX') || numStr.includes('NOCT')) {
-    return 6000;
-  }
-
-  // 7. Scolaires (100+)
-  if (cat.includes('scolaire') || (!isNaN(n) && n >= 100)) {
-    return 7000 + (n || 0);
-  }
-
-  return 8000 + (n || 0);
-}
-
-function sortLinesOfficial(list) {
-  if (!Array.isArray(list)) return [];
-  return [...list].sort((a, b) => {
-    const scoreA = getLineOrderScore(a);
-    const scoreB = getLineOrderScore(b);
-    if (scoreA !== scoreB) return scoreA - scoreB;
-    return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
-  });
-}
-
 async function initLines() {
   try {
     let loadedFromSupabase = false;
@@ -164,7 +107,7 @@ async function initLines() {
       try {
         const sbLines = await fetchLinesFromSupabase();
         if (sbLines && Array.isArray(sbLines) && sbLines.length > 0) {
-          linesData = sortLinesOfficial(sbLines);
+          linesData = sbLines;
           localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
           loadedFromSupabase = true;
           console.info(`[Histo14Bus] ${sbLines.length} lignes chargées depuis Supabase.`);
@@ -180,9 +123,8 @@ async function initLines() {
       if (!linesData || linesData.length < 5 || !linesData.some(l => l.connections)) {
         const res = await fetch("data/lines.json?t=" + Date.now());
         linesData = await res.json();
+        localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
       }
-      linesData = sortLinesOfficial(linesData);
-      localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
     }
     renderLines();
   } catch (err) { console.error("Erreur lignes:", err); }
@@ -576,8 +518,7 @@ function renderLineModalBody(line) {
     </div>
     <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/20">
       <a href="${pdfUrl}" target="_blank" class="px-3 py-1 bg-emerald-600/80 hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center gap-1 transition text-white"><i data-lucide="file-text" class="w-3.5 h-3.5"></i> Fiche PDF</a>
-      <button type="button" onclick="closeLineModal(); openPlanEditorForLine('${line.id}')" class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition text-white border border-white/30" title="Ouvrir l'Éditeur de Plan visuel"><i data-lucide="pen-tool" class="w-3.5 h-3.5"></i> Éditer le Plan</button>
-      <button type="button" onclick="closeLineModal(); openEditLineModal('${line.id}')" class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition text-white border border-white/30" title="Modifier les informations complètes de la ligne"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Modifier la Ligne</button>
+      <button type="button" onclick="closeLineModal(); openPlanEditorForLine('${line.id}')" class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition text-white border border-white/30"><i data-lucide="pen-tool" class="w-3.5 h-3.5"></i> Éditer le Plan</button>
     </div>
     <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/15 text-center">
       <div><span class="text-xs text-white/70 block">Arrêts</span><span class="font-bold">${stops.length}</span></div>

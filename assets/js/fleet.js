@@ -10,11 +10,10 @@ let activeFilters = {
   type: 'all',
   energy: 'all',
   network: 'all',
-  operator: 'all',
   series: 'all'
 };
 let fleetSort = 'asc'; // 'asc', 'desc', 'year-desc', 'year-asc'
-let viewMode = 'table'; // 'naotc', 'grid', or 'table'
+let viewMode = 'naotc'; // 'naotc', 'grid', or 'table'
 let currentVehicleIndex = -1;
 
 async function initFleet() {
@@ -62,50 +61,10 @@ async function initFleet() {
     }
 
 
-    function fixFleetUtf8(list) {
-      if (!Array.isArray(list)) return [];
-
-      // Corrige une chaîne UTF-8 corrompue (double-encodage Latin-1 → UTF-8)
-      function fixStr(s) {
-        if (!s || typeof s !== 'string') return s;
-        return s
-          .replace(/Ã©/g, 'é').replace(/Ã¨/g, 'è').replace(/Ã‡/g, 'Ç').replace(/Ã§/g, 'ç')
-          .replace(/Ã /g, 'à').replace(/Ã¢/g, 'â').replace(/Ã®/g, 'î').replace(/Ã´/g, 'ô')
-          .replace(/Ã»/g, 'û').replace(/Ã«/g, 'ë').replace(/Ã¯/g, 'ï').replace(/Ã¼/g, 'ü')
-          .replace(/Ã‰/g, 'É').replace(/Ã€/g, 'À').replace(/Ã‚/g, 'Â').replace(/Ãœ/g, 'Ü')
-          .replace(/â™¿/g, '♿').replace(/â€™/g, "'").replace(/â€"/g, '–').replace(/â€œ/g, '"')
-          .replace(/â€/g, '"').replace(/â€¢/g, '•').replace(/Â°/g, '°').replace(/Â«/g, '«')
-          .replace(/Â»/g, '»');
-      }
-
-      return list.map(v => {
-        if (!v) return v;
-        // Énergie
-        if (v.energy && (v.energy.includes('Ã') || v.energy.toLowerCase().includes('lectrique'))) {
-          v.energy = 'Électrique';
-        }
-        // Marque
-        if (v.brand && v.brand.includes('Bollor')) v.brand = 'Bolloré';
-        if (v.brand) v.brand = fixStr(v.brand);
-        // Modèle
-        if (v.model) v.model = fixStr(v.model);
-        // Exploitant
-        if (v.operator) v.operator = fixStr(v.operator);
-        // Équipements / features (tableaux de chaînes)
-        if (Array.isArray(v.features)) v.features = v.features.map(fixStr);
-        if (Array.isArray(v.equipments)) v.equipments = v.equipments.map(fixStr);
-        // Notes / remarques textuelles
-        if (v.notes) v.notes = fixStr(v.notes);
-        if (v.description) v.description = fixStr(v.description);
-        return v;
-      });
-    }
-    fleetData = fixFleetUtf8(fleetData);
-
     updateFleetStats();
     updateNetworkCardCounts();
     populateSeriesDropdown();
-    setFleetViewMode('table'); // Vue par défaut : N° de Parc (tableau)
+    renderFleet();
 
     // Check URL parameters for direct vehicle deep-linking (e.g. ?bus=5220 or ?network=Twisto)
     const urlParams = new URLSearchParams(window.location.search);
@@ -268,13 +227,6 @@ function getFilteredFleet() {
     // Energy filter
     if (activeFilters.energy !== 'all') {
       if (!vehicle.energy || !vehicle.energy.toLowerCase().includes(activeFilters.energy.toLowerCase())) {
-        return false;
-      }
-    }
-
-    // Operator filter
-    if (activeFilters.operator && activeFilters.operator !== 'all') {
-      if (!vehicle.operator || !vehicle.operator.toLowerCase().includes(activeFilters.operator.toLowerCase())) {
         return false;
       }
     }
@@ -544,12 +496,7 @@ function renderVehicleCard(v) {
   else if (v.network && v.network.includes('Nomad')) networkBadgeBg = 'bg-amber-700/90 text-white';
 
   const linesHtml = v.lines && v.lines.length > 0 
-    ? v.lines.slice(0, 4).map(line => {
-        const m = line.match(/^(.*?)\s*\((.*?)\)$/);
-        const name = m ? m[1].trim() : line;
-        const period = m ? m[2].trim() : '';
-        return `<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200" title="${period ? `${name} (${period})` : name}">${name}</span>`;
-      }).join(' ')
+    ? v.lines.slice(0, 4).map(line => `<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">${line}</span>`).join(' ')
     : '<span class="text-xs text-slate-400">Non spécifié</span>';
 
   return `
@@ -646,11 +593,9 @@ function renderVehicleTable(vehicles) {
         <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60">
           ${vehicles.map(v => `
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition cursor-pointer" onclick="openVehicleModal('${v.id}')">
-              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                <div class="flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${v.status === 'Actuel' ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-                  <span class="whitespace-nowrap">N° ${v.number}</span>
-                </div>
+              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full ${v.status === 'Actuel' ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+                N° ${v.number}
               </td>
               <td class="py-3.5 px-4 font-bold text-xs text-emerald-600 dark:text-emerald-400">${v.network || 'Twisto'}</td>
               <td class="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">${v.model}</td>
@@ -716,7 +661,6 @@ function openVehicleModal(id) {
 
   const isTram = vehicle.type === 'Tramway';
   const isActif = vehicle.status === 'Actuel';
-  const assignments = parseVehicleAssignments(vehicle);
 
   modalContent.innerHTML = `
     <!-- Modal Header with Image -->
@@ -839,127 +783,19 @@ function openVehicleModal(id) {
         </div>
       </div>
 
-      <!-- 2. BLOC VERT : Situation & Affectations Actuelles (Exploitant, Dépôt & Lignes) -->
-      <div class="p-4 sm:p-5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-2xl border-2 border-emerald-300 dark:border-emerald-800 shadow-sm space-y-3.5">
-        <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-emerald-200 dark:border-emerald-800/60">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
-            <h3 class="text-base font-extrabold text-emerald-950 dark:text-emerald-200 flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i> Affectation & Situation Actuelle
-            </h3>
-          </div>
-          <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-3 py-1 rounded-full border border-emerald-300 dark:border-emerald-700">
-            En service actif
-          </span>
-        </div>
-
-        <!-- Exploitant Actuel & Dépôt Actuel -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl shadow-xs">
-            <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0">
-              <i data-lucide="building-2" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Exploitant Actuel</span>
-              <span class="text-sm font-extrabold text-slate-900 dark:text-white">${vehicle.operator || 'Non renseigné'}</span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl shadow-xs">
-            <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0">
-              <i data-lucide="map-pin" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Dépôt d'attache Actuel</span>
-              <span class="text-sm font-extrabold text-slate-900 dark:text-white">${vehicle.depot || 'Non renseigné'}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Lignes Actuelles -->
+      <!-- 2. Assigned Lines -->
+      ${vehicle.lines && vehicle.lines.length > 0 ? `
         <div>
-          <span class="text-xs font-bold text-emerald-950 dark:text-emerald-200 block mb-2 flex items-center gap-1.5">
-            <i data-lucide="navigation" class="w-4 h-4 text-emerald-600"></i> Lignes & Services actuellement affectés :
-          </span>
-          ${assignments.currentLines.length > 0 ? `
-            <div class="flex flex-wrap gap-2">
-              ${assignments.currentLines.map(l => `
-                <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5 flex-wrap">
-                  <i data-lucide="navigation" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
-                  <span>${l.name}</span>
-                  ${l.period ? `<span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-md text-xs font-semibold font-mono flex items-center gap-1">📅 ${l.period}</span>` : ''}
-                </span>
-              `).join('')}
-            </div>
-          ` : `
-            <span class="text-xs text-slate-500 italic">Aucune ligne spécifique actuellement affectée (ou véhicule de réserve).</span>
-          `}
-        </div>
-      </div>
-
-      <!-- 2.5. BLOC ROUGE : Historique des Affectations, Exploitants & Dépôts -->
-      ${(assignments.pastLines.length > 0 || assignments.pastOperators.length > 0 || assignments.pastDepots.length > 0) ? `
-        <div class="p-4 sm:p-5 bg-rose-50/80 dark:bg-rose-950/40 rounded-2xl border-2 border-rose-300 dark:border-rose-900/60 shadow-sm space-y-3.5">
-          <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-rose-200 dark:border-rose-900/60">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-rose-500"></span>
-              <h3 class="text-base font-extrabold text-rose-950 dark:text-rose-200 flex items-center gap-2">
-                <i data-lucide="history" class="w-5 h-5 text-rose-600"></i> Historique : Anciennes Affectations, Exploitants & Dépôts
-              </h3>
-            </div>
-            <span class="text-xs font-bold text-rose-800 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/60 px-3 py-1 rounded-full border border-rose-300 dark:border-rose-800">
-              ${assignments.pastLines.length + assignments.pastOperators.length + assignments.pastDepots.length} antécédent(s)
-            </span>
-          </div>
-
-          <!-- Anciens Exploitants & Anciens Dépôts -->
-          ${(assignments.pastOperators.length > 0 || assignments.pastDepots.length > 0) ? `
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              ${assignments.pastOperators.map(o => `
-                <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 rounded-xl shadow-xs">
-                  <div class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="building" class="w-4 h-4"></i>
-                  </div>
-                  <div class="overflow-hidden">
-                    <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Ancien Exploitant</span>
-                    <span class="text-sm font-extrabold text-slate-900 dark:text-white block truncate">${o.name}</span>
-                    ${o.period ? `<span class="text-xs text-rose-600 dark:text-rose-400 font-mono font-semibold flex items-center gap-1 mt-0.5">📅 ${o.period}</span>` : ''}
-                  </div>
-                </div>
-              `).join('')}
-
-              ${assignments.pastDepots.map(d => `
-                <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 rounded-xl shadow-xs">
-                  <div class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="map-pin" class="w-4 h-4"></i>
-                  </div>
-                  <div class="overflow-hidden">
-                    <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Ancien Dépôt d'attache</span>
-                    <span class="text-sm font-extrabold text-slate-900 dark:text-white block truncate">${d.name}</span>
-                    ${d.period ? `<span class="text-xs text-rose-600 dark:text-rose-400 font-mono font-semibold flex items-center gap-1 mt-0.5">📅 ${d.period}</span>` : ''}
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          ` : ''}
-
-          <!-- Anciennes Affectations de Lignes -->
-          ${assignments.pastLines.length > 0 ? `
-            <div>
-              <span class="text-xs font-bold text-rose-950 dark:text-rose-200 block mb-2 flex items-center gap-1.5">
-                <i data-lucide="route" class="w-4 h-4 text-rose-600"></i> Anciennes affectations de lignes :
+          <h3 class="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+            <i data-lucide="route" class="w-5 h-5 text-emerald-600"></i> Lignes Habituellement Affectées
+          </h3>
+          <div class="flex flex-wrap gap-2">
+            ${vehicle.lines.map(l => `
+              <span class="px-3.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold rounded-xl text-sm shadow-sm flex items-center gap-1">
+                <i data-lucide="navigation" class="w-3.5 h-3.5"></i> ${l}
               </span>
-              <div class="flex flex-wrap gap-2">
-                ${assignments.pastLines.map(l => `
-                  <span class="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 font-extrabold rounded-xl text-sm shadow-sm flex items-center gap-1.5 flex-wrap">
-                    <i data-lucide="navigation" class="w-3.5 h-3.5 text-rose-500 flex-shrink-0"></i>
-                    <span>${l.name}</span>
-                    ${l.period ? `<span class="px-2 py-0.5 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 rounded-md text-xs font-semibold font-mono flex items-center gap-1">📅 ${l.period}</span>` : ''}
-                  </span>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
+            `).join('')}
+          </div>
         </div>
       ` : ''}
 
@@ -1051,13 +887,6 @@ function shareVehicle(number, model) {
   }
 }
 
-function filterFleetByOperator(operator, btn) {
-  activeFilters.operator = operator;
-  document.querySelectorAll('.op-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderFleet();
-}
-
 function resetFleetFilters() {
   activeFilters = {
     search: '',
@@ -1065,7 +894,6 @@ function resetFleetFilters() {
     type: 'all',
     energy: 'all',
     network: 'all',
-    operator: 'all',
     series: 'all'
   };
 
@@ -1095,66 +923,6 @@ function resetFleetFilters() {
   }
 
   renderFleet();
-}
-
-function parseVehicleAssignments(vehicle) {
-  const currentLines = [];
-  const pastLines = [];
-  const pastOperators = [];
-  const pastDepots = [];
-
-  if (Array.isArray(vehicle.lines)) {
-    vehicle.lines.forEach(l => {
-      if (!l) return;
-      const cleanL = l.trim();
-      const isExplicitPast = cleanL.startsWith('[Historique]') || cleanL.startsWith('[Ancien]') || cleanL.startsWith('(Ancien)');
-      const withoutTag = cleanL.replace(/^\[(Historique|Ancien)\]\s*/i, '').replace(/^\(Ancien\)\s*/i, '');
-      const match = withoutTag.match(/^(.*?)\s*\((.*?)\)$/);
-      const name = match ? match[1].trim() : withoutTag;
-      const period = match ? match[2].trim() : '';
-
-      // Detection heuristic: range with end date (e.g. "Septembre 2025 - Janvier 2026", "2019 à 2024", "2024 - 2025")
-      const isRangeWithEnd = /(?:[\-–—]|(?:jusqu|au|à))\s*(?:\d{4}|(?:janv|févr|fevr|mars|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec))/i.test(period);
-      const isCurrentPeriod = /^(?:depuis|actuel|en cours)/i.test(period);
-
-      if (isExplicitPast || (isRangeWithEnd && !isCurrentPeriod)) {
-        pastLines.push({ name, period, raw: cleanL });
-      } else {
-        currentLines.push({ name, period, raw: cleanL });
-      }
-    });
-  }
-
-  if (Array.isArray(vehicle.history)) {
-    vehicle.history.forEach(h => {
-      const evt = (h.event || '').trim();
-      // Operators
-      const opMatch = evt.match(/^(?:Exploité par|Ancien exploitant\s*:?|Exploitant\s*:?)\s*([^()]+?)(?:\s*\((.*?)\))?\.?$/i);
-      if (opMatch) {
-        const opName = opMatch[1].trim();
-        const opPeriod = opMatch[2] ? opMatch[2].trim() : '';
-        if (opName && (!vehicle.operator || opName.toLowerCase() !== vehicle.operator.toLowerCase() || opPeriod)) {
-          if (!pastOperators.some(o => o.name.toLowerCase() === opName.toLowerCase() && o.period === opPeriod)) {
-            pastOperators.push({ name: opName, period: opPeriod, date: h.date });
-          }
-        }
-      }
-
-      // Depots
-      const depotMatch = evt.match(/^(?:Dépôt|Attribué au dépôt|Ancien dépôt\s*:?|Dépôt d'attache\s*:?)\s*([^()]+?)(?:\s*\((.*?)\))?\.?$/i);
-      if (depotMatch) {
-        const depotName = depotMatch[1].trim();
-        const depotPeriod = depotMatch[2] ? depotMatch[2].trim() : '';
-        if (depotName && (!vehicle.depot || depotName.toLowerCase() !== vehicle.depot.toLowerCase() || depotPeriod)) {
-          if (!pastDepots.some(d => d.name.toLowerCase() === depotName.toLowerCase() && d.period === depotPeriod)) {
-            pastDepots.push({ name: depotName, period: depotPeriod, date: h.date });
-          }
-        }
-      }
-    });
-  }
-
-  return { currentLines, pastLines, pastOperators, pastDepots };
 }
 
 function formatDate(dateStr) {
