@@ -624,7 +624,7 @@ function renderVehicleCard(v) {
     <div class="transit-card bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl flex flex-col group cursor-pointer" onclick="openVehicleModal('${v.id}')">
       <!-- Card Image Header -->
       <div class="relative h-48 w-full overflow-hidden bg-slate-900">
-        <img src="${v.photo || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80'}" alt="${v.model} n°${v.number}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80'" />
+        <img src="${v.photo || 'assets/img/no-photo-bus-tram.jpg'}" alt="${v.model} n°${v.number}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" onerror="this.src='assets/img/no-photo-bus-tram.jpg'" />
         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30"></div>
         
         <!-- Fleet Number Badge -->
@@ -788,7 +788,7 @@ function openVehicleModal(id) {
   modalContent.innerHTML = `
     <!-- Modal Header with Image -->
     <div class="relative h-64 sm:h-80 w-full overflow-hidden bg-slate-950 rounded-t-3xl">
-      <img src="${vehicle.photo || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=80'}" alt="${vehicle.model} n°${vehicle.number}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=80'" />
+      <img src="${vehicle.photo || 'assets/img/no-photo-bus-tram.jpg'}" alt="${vehicle.model} n°${vehicle.number}" class="w-full h-full object-cover" onerror="this.src='assets/img/no-photo-bus-tram.jpg'" />
       <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/60"></div>
       
       <!-- Close Button -->

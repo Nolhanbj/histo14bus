@@ -1273,7 +1273,7 @@ function handleSaveVehicle(e, editId) {
   const deliveryDate = document.getElementById('adm-delivery-date').value || document.getElementById('adm-service-date').value;
   const serviceDate = document.getElementById('adm-service-date').value || new Date().toISOString().split('T')[0];
   const author = document.getElementById('adm-author').value.trim() || 'Alexs_14';
-  const photo = document.getElementById('adm-photo').value.trim() || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1000&q=80';
+  const photo = document.getElementById('adm-photo').value.trim() || 'assets/img/no-photo-bus-tram.jpg';
   const notes = document.getElementById('adm-notes').value.trim();
 
   if (brand) addPresetItem('brands', brand);
