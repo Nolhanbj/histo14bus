@@ -838,14 +838,26 @@ function openVehicleModal(id) {
     <div class="p-6 sm:p-8 space-y-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-b-3xl max-h-[70vh] overflow-y-auto">
       
       <!-- Top Action Bar -->
-      <div class="flex flex-wrap items-center justify-end gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
-        <button onclick="closeVehicleModal(); setTimeout(() => openEditVehicleModal('${vehicle.id}'), 120);" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-md shadow-emerald-600/25" title="Modifier la fiche complète de ce véhicule">
-          <i data-lucide="edit-3" class="w-4 h-4"></i> 
-          <span>Modifier la fiche</span>
-        </button>
-        <button onclick="shareVehicle('${vehicle.number}', '${vehicle.model}')" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-          <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Partager
-        </button>
+      <div class="flex flex-col items-end gap-1.5 pb-4 border-b border-slate-100 dark:border-slate-800">
+        ${(() => {
+          const rawUpd = vehicle.updated_at || vehicle.updatedAt;
+          if (!rawUpd) return '';
+          const d = new Date(rawUpd);
+          if (isNaN(d.getTime())) return '';
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const yy = String(d.getFullYear()).slice(-2);
+          return `<span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">Mise à jour le : ${dd}/${mm}/${yy}</span>`;
+        })()}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <button onclick="closeVehicleModal(); setTimeout(() => openEditVehicleModal('${vehicle.id}'), 120);" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-md shadow-emerald-600/25" title="Modifier la fiche complète de ce véhicule">
+            <i data-lucide="edit-3" class="w-4 h-4"></i> 
+            <span>Modifier la fiche</span>
+          </button>
+          <button onclick="shareVehicle('${vehicle.number}', '${vehicle.model}')" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Partager
+          </button>
+        </div>
       </div>
 
       <!-- 1. Technical Specifications Grid (Fiche Technique & Informations) -->
@@ -1063,16 +1075,16 @@ function openVehicleModal(id) {
               <span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">${galleryItems.length}</span>
             </h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              ${galleryItems.map(p => `
-                <a href="${p.url}" target="_blank" rel="noopener noreferrer" class="group relative aspect-video rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-sm hover:shadow-md transition">
+              ${galleryItems.map((p, idx) => `
+                <button type="button" onclick="openVehiclePhotoLightbox('${vehicle.id}', ${idx})" class="group relative aspect-video rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-sm hover:shadow-md transition text-left cursor-pointer">
                   <img src="${p.url}" alt="${vehicle.model} n°${vehicle.number}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy" />
                   ${p.line ? `<span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold border border-white/20">${p.line}</span>` : ''}
                   ${p.date ? `<span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[10px] font-semibold border border-white/20">${formatDate(p.date)}</span>` : ''}
                   <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 flex items-center justify-between text-[11px] text-white font-semibold">
                     <span class="truncate flex items-center gap-1"><span class="font-bold">&copy;</span> ${p.author}</span>
-                    <i data-lucide="external-link" class="w-3 h-3 opacity-80 flex-shrink-0"></i>
+                    <i data-lucide="maximize-2" class="w-3.5 h-3.5 opacity-80 flex-shrink-0"></i>
                   </div>
-                </a>
+                </button>
               `).join('')}
             </div>
           </div>
@@ -1197,6 +1209,79 @@ function closeVehicleModal() {
   if (modal) modal.classList.add('hidden');
   document.body.classList.remove('overflow-hidden');
   window.history.replaceState(null, '', window.location.pathname);
+}
+
+function getVehicleGalleryItems(vehicle) {
+  if (!vehicle) return [];
+  const hist = Array.isArray(vehicle.history) ? vehicle.history : [];
+  const mainMeta = hist.find(h => h.type === 'photo_main_meta');
+  const items = [];
+  if (vehicle.photo) {
+    items.push({
+      url: vehicle.photo,
+      author: vehicle.photoAuthor || (mainMeta && mainMeta.author) || 'Alexs_14',
+      line: (mainMeta && mainMeta.line) || '',
+      date: (mainMeta && mainMeta.date) || ''
+    });
+  }
+  if (Array.isArray(vehicle.photos)) {
+    vehicle.photos.forEach(p => {
+      const url = typeof p === 'string' ? p : (p && p.url);
+      if (url && !items.some(g => g.url === url)) {
+        items.push({
+          url,
+          author: (p && p.author) || vehicle.photoAuthor || 'Spotteur',
+          line: (p && p.line) || '',
+          date: (p && p.date) || ''
+        });
+      }
+    });
+  }
+  hist.filter(h => h.type === 'photo_gallery' && h.url).forEach(p => {
+    if (!items.some(g => g.url === p.url)) {
+      items.push({ url: p.url, author: p.author || 'Spotteur', line: p.line || '', date: p.date || '' });
+    }
+  });
+  return items;
+}
+
+function openVehiclePhotoLightbox(vehicleId, index = 0) {
+  const vehicle = fleetData.find(v => v.id === vehicleId || v.number === vehicleId);
+  const items = getVehicleGalleryItems(vehicle);
+  const item = items[index];
+  if (!item) return;
+
+  let lb = document.getElementById('vehicle-photo-lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = 'vehicle-photo-lightbox';
+    lb.className = 'fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4';
+    lb.onclick = (e) => {
+      if (e.target === lb) closeVehiclePhotoLightbox();
+    };
+    document.body.appendChild(lb);
+  }
+
+  lb.innerHTML = `
+    <button type="button" onclick="closeVehiclePhotoLightbox()" class="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition z-10" title="Fermer">
+      <i data-lucide="x" class="w-6 h-6"></i>
+    </button>
+    <div class="relative max-w-[95vw] max-h-[90vh] flex flex-col items-center gap-3" onclick="event.stopPropagation()">
+      <img src="${item.url}" alt="${vehicle ? vehicle.model : 'Photo'}" class="max-w-[92vw] max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10" />
+      <div class="flex flex-wrap items-center justify-center gap-2 text-xs text-white font-semibold bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/15">
+        <span class="flex items-center gap-1 font-bold">&copy; ${item.author}</span>
+        ${item.line ? `<span class="px-2 py-0.5 rounded-full bg-emerald-600/80 text-[11px]">${item.line}</span>` : ''}
+        ${item.date ? `<span class="px-2 py-0.5 rounded-full bg-white/15 text-[11px]">${formatDate(item.date)}</span>` : ''}
+      </div>
+    </div>
+  `;
+  lb.classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [lb] });
+}
+
+function closeVehiclePhotoLightbox() {
+  const lb = document.getElementById('vehicle-photo-lightbox');
+  if (lb) lb.classList.add('hidden');
 }
 
 function navigateVehicle(direction) {

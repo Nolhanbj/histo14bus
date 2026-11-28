@@ -764,11 +764,12 @@ function getVehicleFormHtml(editId = null, presets = null) {
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Énergie / Motorisation</label>
             <select id="adm-energy" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold">
-              <option value="Gaz Naturel (BioGNV)" ${v && v.energy && v.energy.includes('GNV') ? 'selected' : ''}>Gaz Naturel (BioGNV)</option>
-              <option value="Électrique (750V)" ${v && v.energy && v.energy.includes('Électrique') ? 'selected' : ''}>Électrique (750V / Batterie)</option>
-              <option value="Hybride (Diesel-Élec)" ${v && v.energy && v.energy.includes('Hybride') ? 'selected' : ''}>Hybride (Diesel-Élec)</option>
-              <option value="Diesel (Euro VI)" ${v && v.energy && v.energy.includes('Euro VI') ? 'selected' : ''}>Diesel (Euro VI)</option>
-              <option value="Diesel (Euro V)" ${v && v.energy && (v.energy.includes('Euro V') || v.energy.includes('Euro IV')) ? 'selected' : ''}>Diesel (Euro V / IV)</option>
+              <option value="Gaz Naturel (BioGNV)" ${v && v.energy && /gnv|gaz/i.test(v.energy) ? 'selected' : ''}>Gaz Naturel (BioGNV)</option>
+              <option value="Électrique (750V)" ${v && v.energy && /électrique|electrique/i.test(v.energy) ? 'selected' : ''}>Électrique (750V / Batterie)</option>
+              <option value="Hybride (Diesel-Élec)" ${v && v.energy && /hybride/i.test(v.energy) ? 'selected' : ''}>Hybride (Diesel-Élec)</option>
+              <option value="Diesel (Euro VI)" ${v && v.energy && /\beuro\s*vi\b/i.test(v.energy) ? 'selected' : ''}>Diesel (Euro VI)</option>
+              <option value="Diesel (Euro V)" ${v && v.energy && /\beuro\s*(v|iv)\b/i.test(v.energy) ? 'selected' : ''}>Diesel (Euro V / IV)</option>
+              <option value="Diesel" ${v && v.energy && /^diesel$/i.test(v.energy.trim()) ? 'selected' : ''}>Diesel</option>
             </select>
           </div>
 
@@ -1377,7 +1378,8 @@ function handleSaveVehicle(e, editId) {
     history: baseHistory,
     photo: photo,
     photoAuthor: author,
-    notes: notes
+    notes: notes,
+    updated_at: new Date().toISOString()
   };
 
   if (editId) {
