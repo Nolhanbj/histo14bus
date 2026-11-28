@@ -26,7 +26,15 @@ let newsAdminSubView = 'articles'; // 'articles' or 'movements'
 // Temporary state for editing vehicle/line arrays
 let tempVehicleFeatures = [];
 let tempVehicleHistory = [];
+let tempVehicleLineAssignments = []; // [{ lines, period, status: 'current'|'past' }]
+let tempVehiclePastOperators = [];   // [{ operator, depot, period }]
+let tempVehicleCurrentOpPeriod = '';
+let tempVehicleExtraPhotos = [];     // [{ url, author, line, date }]
+let tempMainPhotoMeta = { line: '', date: '' };
 let tempLineStops = [];
+let tempLinePastOperators = [];      // [{ operator, period }]
+let tempLineRollingStock = [];       // ['Iveco Urbanway 12 GNV', ...]
+let tempLineOldPlans = [];           // [{ date, operator, info, stops }]
 
 const ACCOUNTS_STORAGE_KEY = 'histo14_admin_accounts_v2';
 const PRESETS_STORAGE_KEY = 'histo14_vehicle_presets_v1';
@@ -447,14 +455,56 @@ function getAdminTabContentHtml(presets, accounts) {
    TAB 1: VEHICLES & FLEET MANAGEMENT (LISTE & FORMULAIRE COMPLET A à Z)
    ========================================================================= */
 
+function parseLineAssignmentToObj(entry) {
+  if (!entry) return { lines: '', period: '', status: 'current' };
+  if (typeof entry === 'object') {
+    return {
+      lines: entry.lines || '',
+      period: entry.period || '',
+      status: entry.status === 'past' ? 'past' : 'current'
+    };
+  }
+  const str = String(entry).trim();
+  const isPast = typeof isPastLineAssignment === 'function' ? isPastLineAssignment(str) : false;
+  const parenMatch = str.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return {
+      lines: parenMatch[1].trim(),
+      period: parenMatch[2].trim(),
+      status: isPast ? 'past' : 'current'
+    };
+  }
+  return { lines: str, period: '', status: isPast ? 'past' : 'current' };
+}
+
 function loadVehicleForEdit(id) {
   const target = fleetData.find(v => v.id === id || v.number === id);
   if (target) {
     tempVehicleFeatures = target.features || target.equipments ? [...(target.features || target.equipments)] : [];
-    tempVehicleHistory = target.history ? JSON.parse(JSON.stringify(target.history)) : [];
+    const rawHistory = target.history ? JSON.parse(JSON.stringify(target.history)) : [];
+    const opCurrentMeta = rawHistory.find(h => h.type === 'operator_current');
+    tempVehicleCurrentOpPeriod = opCurrentMeta ? (opCurrentMeta.period || '') : '';
+    tempVehiclePastOperators = rawHistory
+      .filter(h => h.type === 'operator_past')
+      .map(h => ({ operator: h.operator || '', depot: h.depot || '', period: h.period || '' }));
+    const mainMeta = rawHistory.find(h => h.type === 'photo_main_meta');
+    tempMainPhotoMeta = {
+      line: mainMeta ? (mainMeta.line || '') : '',
+      date: mainMeta ? (mainMeta.date || '') : ''
+    };
+    tempVehicleExtraPhotos = rawHistory
+      .filter(h => h.type === 'photo_gallery' && h.url)
+      .map(h => ({ url: h.url || '', author: h.author || '', line: h.line || '', date: h.date || '' }));
+    tempVehicleHistory = rawHistory.filter(h => h.type !== 'operator_current' && h.type !== 'operator_past' && h.type !== 'photo_gallery' && h.type !== 'photo_main_meta');
+    tempVehicleLineAssignments = (target.lines || []).map(parseLineAssignmentToObj);
   } else {
     tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
     tempVehicleHistory = [{ date: new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
+    tempVehicleLineAssignments = [{ lines: 'L1', period: '', status: 'current' }];
+    tempVehiclePastOperators = [];
+    tempVehicleCurrentOpPeriod = '';
+    tempVehicleExtraPhotos = [];
+    tempMainPhotoMeta = { line: '', date: '' };
   }
 }
 
@@ -559,6 +609,11 @@ function startNewVehicleForm() {
   editingVehicleId = null;
   tempVehicleFeatures = ['Climatisation intégrale', 'Accès PMR / Rampe UFR motorisée', 'Prises de recharge USB passagers'];
   tempVehicleHistory = [{ date: new Date().toISOString().split('T')[0], event: 'Mise en service.' }];
+  tempVehicleLineAssignments = [{ lines: 'L1', period: '', status: 'current' }];
+  tempVehiclePastOperators = [];
+  tempVehicleCurrentOpPeriod = '';
+  tempVehicleExtraPhotos = [];
+  tempMainPhotoMeta = { line: '', date: '' };
   vehicleAdminSubView = 'form';
   renderAdminModalContent();
 }
@@ -638,9 +693,9 @@ function getVehicleFormHtml(editId = null, presets = null) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Exploitant / Transporteur *</label>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Exploitant actuel *</label>
             <input type="text" id="adm-operator" list="presets-operators-list" required value="${v ? v.operator || '' : 'Keolis Caen la mer'}" placeholder="Sélectionnez ou tapez l'exploitant" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" />
             <datalist id="presets-operators-list">
               ${presets.operators.map(o => `<option value="${o}"></option>`).join('')}
@@ -648,8 +703,24 @@ function getVehicleFormHtml(editId = null, presets = null) {
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dépôt d'attache</label>
-            <input type="text" id="adm-depot" value="${v ? v.depot || '' : 'Dépôt d\'Hérouville Sphère'}" placeholder="ex: Dépôt d'Hérouville Sphère ou Dépôt Tramway" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dépôt actuel</label>
+            <input type="text" id="adm-depot" value="${v ? v.depot || '' : 'Dépôt d\'Hérouville Sphère'}" placeholder="ex: Dépôt d'Hérouville Sphère" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Période (exploitant actuel)</label>
+            <input type="text" id="adm-operator-period" value="${tempVehicleCurrentOpPeriod || ''}" placeholder="ex: Depuis Avril 2026" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+        </div>
+
+        <!-- Anciens exploitants & dépôts -->
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-red-600 dark:text-red-400">Anciens exploitants & dépôts (affichés en rouge)</span>
+            <button type="button" onclick="addPastOperatorRow()" class="px-2.5 py-1 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[11px] font-bold transition">+ Ajouter un ancien exploitant</button>
+          </div>
+          <div id="adm-past-operators-container" class="space-y-2">
+            ${renderPastOperatorsRowsHtml()}
           </div>
         </div>
       </div>
@@ -824,37 +895,70 @@ function getVehicleFormHtml(editId = null, presets = null) {
         </div>
       </div>
 
-      <!-- 5. AFFECTATIONS, PHOTOS ET NOTES -->
+      <!-- 5. AFFECTATIONS ET NOTES -->
       <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
         <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-          <i data-lucide="camera" class="w-4 h-4 text-emerald-600"></i> 5. Lignes, Photo & Notes
+          <i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> 5. Affectations de Lignes & Notes
         </h4>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Lignes affectées (séparées par virgules)</label>
-            <input type="text" id="adm-lines" value="${v && v.lines ? v.lines.join(', ') : 'L1, L3'}" placeholder="ex: T1, L1, L3, 10, 11EX" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+        <!-- Affectations de lignes (Actuelles en vert / Anciennes en rouge) -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Affectations de lignes (Actuelles en vert, Anciennes en rouge)</label>
+            <button type="button" onclick="addLineAssignmentRow()" class="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-bold transition">+ Ajouter une affectation</button>
           </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Auteur de la Photo / Spotteur</label>
-            <input type="text" id="adm-author" value="${v ? v.photoAuthor || (v.photos && v.photos[0] ? v.photos[0].author : '') || 'Alexs_14' : 'Alexs_14'}" placeholder="ex: Alexs_14, Alexis, Nolhanbj" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">URL de la Photo</label>
-          <div class="flex gap-2">
-            <input type="text" id="adm-photo" value="${v ? v.photo || (v.photos && v.photos[0] ? v.photos[0].url : '') || '' : ''}" oninput="previewPhoto('adm-photo-preview', this.value)" placeholder="https://... ou assets/img/monbus.jpg" class="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
-            <div id="adm-photo-preview" class="w-14 h-10 rounded-lg bg-slate-200 dark:bg-slate-800 overflow-hidden flex-shrink-0 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs text-slate-400">
-              ${v && (v.photo || (v.photos && v.photos[0])) ? `<img src="${v.photo || v.photos[0].url}" class="w-full h-full object-cover" />` : '<i data-lucide="image" class="w-5 h-5"></i>'}
-            </div>
+          <div id="adm-line-assignments-container" class="space-y-2">
+            ${renderLineAssignmentsRowsHtml()}
           </div>
         </div>
 
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Notes & Observations particulières</label>
           <textarea id="adm-notes" rows="2" placeholder="Observations particulières sur le véhicule..." class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">${v ? v.notes || '' : ''}</textarea>
+        </div>
+      </div>
+
+      <!-- 6. GALERIE PHOTOS DU VÉHICULE (Copyright & Ligne) -->
+      <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="camera" class="w-4 h-4 text-emerald-600"></i> 6. Photos du Véhicule (&copy; Photographe &amp; Ligne)
+          </h4>
+          <button type="button" onclick="addExtraPhotoRow()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> + Ajouter une photo
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div class="sm:col-span-5">
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Photo principale (URL ou PC)</label>
+            <div class="flex gap-1.5 items-center">
+              <input type="text" id="adm-photo" value="${v ? v.photo || (v.photos && v.photos[0] ? v.photos[0].url : '') || '' : ''}" oninput="previewPhoto('adm-photo-preview', this.value)" placeholder="https://... ou importer" class="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+              <label class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] font-bold cursor-pointer flex items-center gap-1 whitespace-nowrap" title="Importer une image depuis votre PC">
+                <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-600"></i> PC
+                <input type="file" accept="image/*" class="hidden" onchange="handleLocalPhotoUpload(this, 'main')" />
+              </label>
+              <div id="adm-photo-preview" class="w-10 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 overflow-hidden flex-shrink-0 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs text-slate-400">
+                ${v && (v.photo || (v.photos && v.photos[0])) ? `<img src="${v.photo || v.photos[0].url}" class="w-full h-full object-cover" />` : '<i data-lucide="image" class="w-4 h-4"></i>'}
+              </div>
+            </div>
+          </div>
+          <div class="sm:col-span-3">
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">&copy; Photographe</label>
+            <input type="text" id="adm-author" value="${v ? v.photoAuthor || (v.photos && v.photos[0] ? v.photos[0].author : '') || 'Alexs_14' : 'Alexs_14'}" placeholder="ex: Alexs_14" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Ligne</label>
+            <input type="text" id="adm-photo-line" value="${(tempMainPhotoMeta.line || '').replace(/"/g, '&quot;')}" placeholder="ex: Ligne 12" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Date</label>
+            <input type="date" id="adm-photo-date" value="${(tempMainPhotoMeta.date || '').replace(/"/g, '&quot;')}" class="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+        </div>
+
+        <div id="adm-extra-photos-container" class="space-y-2">
+          ${renderExtraPhotosRowsHtml()}
         </div>
       </div>
 
@@ -968,6 +1072,183 @@ function refreshVehicleFormHistory() {
   }
 }
 
+function renderLineAssignmentsRowsHtml() {
+  if (!tempVehicleLineAssignments || tempVehicleLineAssignments.length === 0) {
+    return `<p class="text-[11px] text-slate-400 italic">Aucune affectation renseignée. Cliquez sur "+ Ajouter une affectation".</p>`;
+  }
+  return tempVehicleLineAssignments.map((item, idx) => `
+    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center p-2 bg-white dark:bg-slate-900 rounded-xl border ${item.status === 'past' ? 'border-red-200 dark:border-red-900/60' : 'border-emerald-200 dark:border-emerald-900/60'}">
+      <input type="text" value="${(item.lines || '').replace(/"/g, '&quot;')}" oninput="updateLineAssignmentField(${idx}, 'lines', this.value)" placeholder="Lignes (ex: NVCV, 21)" class="sm:col-span-4 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <input type="text" value="${(item.period || '').replace(/"/g, '&quot;')}" oninput="updateLineAssignmentField(${idx}, 'period', this.value)" placeholder="Période (ex: Depuis Avril 2026)" class="sm:col-span-4 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <select onchange="updateLineAssignmentField(${idx}, 'status', this.value); refreshLineAssignmentsRows();" class="sm:col-span-3 px-2 py-1.5 text-xs font-bold rounded-lg border outline-none ${item.status === 'past' ? 'bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'}">
+        <option value="current" ${item.status !== 'past' ? 'selected' : ''}>Actuelle (Vert)</option>
+        <option value="past" ${item.status === 'past' ? 'selected' : ''}>Ancienne (Rouge)</option>
+      </select>
+      <button type="button" onclick="removeLineAssignmentRow(${idx})" class="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 transition flex items-center justify-center" title="Supprimer">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function refreshLineAssignmentsRows() {
+  const container = document.getElementById('adm-line-assignments-container');
+  if (container) {
+    container.innerHTML = renderLineAssignmentsRowsHtml();
+    lucide.createIcons();
+  }
+}
+
+function addLineAssignmentRow() {
+  tempVehicleLineAssignments.push({ lines: '', period: '', status: 'current' });
+  refreshLineAssignmentsRows();
+}
+
+function removeLineAssignmentRow(idx) {
+  tempVehicleLineAssignments.splice(idx, 1);
+  refreshLineAssignmentsRows();
+}
+
+function updateLineAssignmentField(idx, field, value) {
+  if (tempVehicleLineAssignments[idx]) {
+    tempVehicleLineAssignments[idx][field] = value;
+  }
+}
+
+function renderPastOperatorsRowsHtml() {
+  if (!tempVehiclePastOperators || tempVehiclePastOperators.length === 0) {
+    return `<p class="text-[11px] text-slate-400 italic">Aucun ancien exploitant enregistré.</p>`;
+  }
+  return tempVehiclePastOperators.map((op, idx) => `
+    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center p-2 bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/60">
+      <input type="text" list="presets-operators-list" value="${(op.operator || '').replace(/"/g, '&quot;')}" oninput="updatePastOperatorField(${idx}, 'operator', this.value)" placeholder="Ancien exploitant" class="sm:col-span-4 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none font-semibold" />
+      <input type="text" value="${(op.depot || '').replace(/"/g, '&quot;')}" oninput="updatePastOperatorField(${idx}, 'depot', this.value)" placeholder="Dépôt (ex: Hérouville Sphère)" class="sm:col-span-4 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <input type="text" value="${(op.period || '').replace(/"/g, '&quot;')}" oninput="updatePastOperatorField(${idx}, 'period', this.value)" placeholder="Période (ex: 2019 - 2025)" class="sm:col-span-3 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <button type="button" onclick="removePastOperatorRow(${idx})" class="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 transition flex items-center justify-center" title="Supprimer">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function refreshPastOperatorsRows() {
+  const container = document.getElementById('adm-past-operators-container');
+  if (container) {
+    container.innerHTML = renderPastOperatorsRowsHtml();
+    lucide.createIcons();
+  }
+}
+
+function addPastOperatorRow() {
+  tempVehiclePastOperators.push({ operator: '', depot: '', period: '' });
+  refreshPastOperatorsRows();
+}
+
+function removePastOperatorRow(idx) {
+  tempVehiclePastOperators.splice(idx, 1);
+  refreshPastOperatorsRows();
+}
+
+function updatePastOperatorField(idx, field, value) {
+  if (tempVehiclePastOperators[idx]) {
+    tempVehiclePastOperators[idx][field] = value;
+  }
+}
+
+function compressImageFileToDataUrl(file, maxWidth = 1200, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = ev.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleLocalPhotoUpload(inputEl, target, index = 0) {
+  const file = inputEl && inputEl.files && inputEl.files[0];
+  if (!file) return;
+  try {
+    const dataUrl = await compressImageFileToDataUrl(file);
+    if (target === 'main') {
+      const urlInput = document.getElementById('adm-photo');
+      if (urlInput) urlInput.value = dataUrl;
+      previewPhoto('adm-photo-preview', dataUrl);
+    } else if (target === 'extra' && tempVehicleExtraPhotos[index]) {
+      tempVehicleExtraPhotos[index].url = dataUrl;
+      refreshExtraPhotosRows();
+    }
+  } catch (err) {
+    console.error('Erreur import image:', err);
+    alert("Impossible de lire cette image.");
+  }
+}
+
+function renderExtraPhotosRowsHtml() {
+  if (!tempVehicleExtraPhotos || tempVehicleExtraPhotos.length === 0) {
+    return `<p class="text-[11px] text-slate-400 italic">Aucune photo supplémentaire. Cliquez sur "+ Ajouter une photo".</p>`;
+  }
+  return tempVehicleExtraPhotos.map((p, idx) => `
+    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="sm:col-span-5 flex items-center gap-1.5">
+        <input type="text" value="${(p.url || '').replace(/"/g, '&quot;')}" oninput="updateExtraPhotoField(${idx}, 'url', this.value)" placeholder="URL ou importer PC" class="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+        <label class="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold cursor-pointer flex items-center gap-1 whitespace-nowrap" title="Importer depuis votre PC">
+          <i data-lucide="upload" class="w-3 h-3 text-emerald-600"></i> PC
+          <input type="file" accept="image/*" class="hidden" onchange="handleLocalPhotoUpload(this, 'extra', ${idx})" />
+        </label>
+        ${p.url ? `<img src="${p.url}" class="w-9 h-7 rounded object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0" />` : ''}
+      </div>
+      <input type="text" value="${(p.author || '').replace(/"/g, '&quot;')}" oninput="updateExtraPhotoField(${idx}, 'author', this.value)" placeholder="© Photographe" class="sm:col-span-2 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <input type="text" value="${(p.line || '').replace(/"/g, '&quot;')}" oninput="updateExtraPhotoField(${idx}, 'line', this.value)" placeholder="Ligne (ex: 12)" class="sm:col-span-2 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <input type="date" value="${(p.date || '').replace(/"/g, '&quot;')}" oninput="updateExtraPhotoField(${idx}, 'date', this.value)" class="sm:col-span-2 px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <button type="button" onclick="removeExtraPhotoRow(${idx})" class="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 transition flex items-center justify-center" title="Supprimer">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function refreshExtraPhotosRows() {
+  const container = document.getElementById('adm-extra-photos-container');
+  if (container) {
+    container.innerHTML = renderExtraPhotosRowsHtml();
+    lucide.createIcons();
+  }
+}
+
+function addExtraPhotoRow() {
+  tempVehicleExtraPhotos.push({ url: '', author: 'Alexs_14', line: '', date: '' });
+  refreshExtraPhotosRows();
+}
+
+function removeExtraPhotoRow(idx) {
+  tempVehicleExtraPhotos.splice(idx, 1);
+  refreshExtraPhotosRows();
+}
+
+function updateExtraPhotoField(idx, field, value) {
+  if (tempVehicleExtraPhotos[idx]) {
+    tempVehicleExtraPhotos[idx][field] = value;
+  }
+}
+
 function handleSaveVehicle(e, editId) {
   e.preventDefault();
 
@@ -977,6 +1258,8 @@ function handleSaveVehicle(e, editId) {
   const modelOnly = document.getElementById('adm-model').value.trim();
   const operator = document.getElementById('adm-operator').value.trim();
   const depot = document.getElementById('adm-depot').value.trim() || 'Dépôt d\'Hérouville Sphère';
+  const operatorPeriodEl = document.getElementById('adm-operator-period');
+  const operatorPeriod = operatorPeriodEl ? operatorPeriodEl.value.trim() : '';
   const type = document.getElementById('adm-type').value;
   const energy = document.getElementById('adm-energy').value;
   const status = document.getElementById('adm-status').value;
@@ -988,7 +1271,6 @@ function handleSaveVehicle(e, editId) {
   const vin = document.getElementById('adm-vin').value.trim() || `VNE-${network.toUpperCase()}-${num}`;
   const deliveryDate = document.getElementById('adm-delivery-date').value || document.getElementById('adm-service-date').value;
   const serviceDate = document.getElementById('adm-service-date').value || new Date().toISOString().split('T')[0];
-  const linesRaw = document.getElementById('adm-lines').value.trim();
   const author = document.getElementById('adm-author').value.trim() || 'Alexs_14';
   const photo = document.getElementById('adm-photo').value.trim() || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1000&q=80';
   const notes = document.getElementById('adm-notes').value.trim();
@@ -998,7 +1280,75 @@ function handleSaveVehicle(e, editId) {
   if (operator) addPresetItem('operators', operator);
 
   const fullModelName = brand && !modelOnly.startsWith(brand) ? `${brand} ${modelOnly}` : modelOnly;
-  const lines = linesRaw ? linesRaw.split(',').map(l => l.trim()).filter(l => l.length > 0) : [];
+  const lines = (tempVehicleLineAssignments || [])
+    .filter(item => item && item.lines && item.lines.trim().length > 0)
+    .map(item => {
+      const l = item.lines.trim();
+      const p = (item.period || '').trim();
+      if (item.status === 'past') {
+        if (p) {
+          const hasEndMarker = /[-–→]|\bau\b|ancien/i.test(p);
+          return hasEndMarker ? `${l} (${p})` : `${l} (${p} - Ancien)`;
+        }
+        return `${l} (Ancien)`;
+      }
+      return p ? `${l} (${p})` : l;
+    });
+
+  const baseHistory = tempVehicleHistory.length > 0
+    ? tempVehicleHistory.filter(h => h.type !== 'operator_current' && h.type !== 'operator_past' && h.type !== 'photo_gallery' && h.type !== 'photo_main_meta')
+    : [{ date: serviceDate, event: `Mise en service sur le réseau ${network}.` }];
+
+  const mainPhotoLineEl = document.getElementById('adm-photo-line');
+  const mainPhotoDateEl = document.getElementById('adm-photo-date');
+  const mainPhotoLine = mainPhotoLineEl ? mainPhotoLineEl.value.trim() : '';
+  const mainPhotoDate = mainPhotoDateEl ? mainPhotoDateEl.value.trim() : '';
+  if (mainPhotoLine || mainPhotoDate) {
+    baseHistory.push({
+      type: 'photo_main_meta',
+      date: mainPhotoDate || serviceDate,
+      line: mainPhotoLine,
+      author: author,
+      event: `Photo principale${mainPhotoLine ? ` (${mainPhotoLine})` : ''}`
+    });
+  }
+
+  if (operatorPeriod) {
+    baseHistory.push({
+      type: 'operator_current',
+      date: serviceDate,
+      operator,
+      depot,
+      period: operatorPeriod,
+      event: `Exploitant actuel : ${operator} (${depot}) — ${operatorPeriod}`
+    });
+  }
+
+  (tempVehiclePastOperators || [])
+    .filter(op => op && (op.operator || op.depot || op.period))
+    .forEach(op => {
+      baseHistory.push({
+        type: 'operator_past',
+        date: serviceDate,
+        operator: (op.operator || '').trim(),
+        depot: (op.depot || '').trim(),
+        period: (op.period || '').trim(),
+        event: `Ancien exploitant : ${(op.operator || '').trim()}${op.depot ? ` • ${op.depot.trim()}` : ''}${op.period ? ` (${op.period.trim()})` : ''}`
+      });
+    });
+
+  (tempVehicleExtraPhotos || [])
+    .filter(p => p && p.url && p.url.trim().length > 0)
+    .forEach(p => {
+      baseHistory.push({
+        type: 'photo_gallery',
+        date: (p.date || serviceDate).trim(),
+        url: p.url.trim(),
+        author: (p.author || author || 'Spotteur').trim(),
+        line: (p.line || '').trim(),
+        event: `Photo ajoutée (${(p.author || author || 'Spotteur').trim()})`
+      });
+    });
 
   const updatedVehicleData = {
     number: num,
@@ -1024,7 +1374,7 @@ function handleSaveVehicle(e, editId) {
     doors: doors,
     features: [...tempVehicleFeatures],
     equipments: [...tempVehicleFeatures],
-    history: tempVehicleHistory.length > 0 ? [...tempVehicleHistory] : [{ date: serviceDate, event: `Mise en service sur le réseau ${network}.` }],
+    history: baseHistory,
     photo: photo,
     photoAuthor: author,
     notes: notes
@@ -1095,6 +1445,22 @@ function loadLineForEdit(id) {
   } else {
     tempLineStops = ["Terminus A", "Arrêt 1", "Arrêt 2", "Terminus B"];
   }
+  const opMeta = (line && line.keyConnections && !Array.isArray(line.keyConnections) && typeof line.keyConnections === 'object')
+    ? line.keyConnections
+    : {};
+  tempLinePastOperators = Array.isArray(opMeta.pastOperators)
+    ? JSON.parse(JSON.stringify(opMeta.pastOperators))
+    : [];
+  tempLineOldPlans = Array.isArray(opMeta.oldPlans)
+    ? JSON.parse(JSON.stringify(opMeta.oldPlans))
+    : [];
+  if (line && line.rollingStock) {
+    tempLineRollingStock = Array.isArray(line.rollingStock)
+      ? [...line.rollingStock]
+      : String(line.rollingStock).split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    tempLineRollingStock = ['Iveco Urbanway 12 GNV'];
+  }
 }
 
 function getLineTabContentHtml() {
@@ -1106,6 +1472,9 @@ function getLineTabContentHtml() {
 }
 
 function getLineListHtml() {
+  if (typeof sortLinesByOrder === 'function') {
+    linesData = sortLinesByOrder(linesData);
+  }
   return `
     <div class="space-y-4">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
@@ -1113,8 +1482,11 @@ function getLineListHtml() {
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
           <input type="text" id="adm-line-search" oninput="filterAdminLineList(this.value)" placeholder="Rechercher une ligne (ex: T1, 1, 12, Express)..." class="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-medium" />
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
           <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">${linesData.length} ligne(s)</span>
+          <button type="button" onclick="resetAdminLinesOrder()" class="px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition whitespace-nowrap" title="Trier automatiquement T1-T3 puis 1, 2, 3...">
+            <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i> Ordre auto
+          </button>
           <button type="button" onclick="startNewLineForm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm whitespace-nowrap">
             <i data-lucide="plus-circle" class="w-4 h-4"></i> + Nouvelle Ligne
           </button>
@@ -1125,6 +1497,7 @@ function getLineListHtml() {
         <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
           <thead class="bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
             <tr>
+              <th class="py-2.5 px-3">Ordre</th>
               <th class="py-2.5 px-3">Indice</th>
               <th class="py-2.5 px-3">Nom de la Ligne</th>
               <th class="py-2.5 px-3">Catégorie</th>
@@ -1135,7 +1508,7 @@ function getLineListHtml() {
             </tr>
           </thead>
           <tbody id="adm-line-table-body" class="divide-y divide-slate-100 dark:divide-slate-800">
-            ${linesData.map(l => renderAdminLineRow(l)).join('')}
+            ${linesData.map((l, idx) => renderAdminLineRow(l, idx, linesData.length)).join('')}
           </tbody>
         </table>
       </div>
@@ -1143,9 +1516,19 @@ function getLineListHtml() {
   `;
 }
 
-function renderAdminLineRow(l) {
+function renderAdminLineRow(l, idx = 0, total = linesData.length) {
   return `
     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+      <td class="py-2.5 px-3">
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="moveAdminLineOrder('${l.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 disabled:opacity-30 transition" title="Monter">
+            <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+          </button>
+          <button type="button" onclick="moveAdminLineOrder('${l.id}', 1)" ${idx >= total - 1 ? 'disabled' : ''} class="p-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 disabled:opacity-30 transition" title="Descendre">
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </td>
       <td class="py-2.5 px-3 font-bold">
         <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold shadow-sm" style="background-color: ${l.color}; color: ${l.textColor || '#FFF'};">
           ${l.number}
@@ -1170,6 +1553,31 @@ function renderAdminLineRow(l) {
   `;
 }
 
+function moveAdminLineOrder(lineId, delta) {
+  const idx = linesData.findIndex(l => String(l.id) === String(lineId) || String(l.number) === String(lineId));
+  if (idx === -1) return;
+  const targetIdx = idx + delta;
+  if (targetIdx < 0 || targetIdx >= linesData.length) return;
+  const temp = linesData[idx];
+  linesData[idx] = linesData[targetIdx];
+  linesData[targetIdx] = temp;
+  if (typeof saveCustomLinesOrder === 'function') {
+    saveCustomLinesOrder(linesData.map(l => l.id || l.number));
+  }
+  if (typeof renderLines === 'function') renderLines();
+  renderAdminModalContent();
+}
+
+function resetAdminLinesOrder() {
+  localStorage.removeItem('histo14_lines_order_v1');
+  if (typeof sortLinesByOrder === 'function') {
+    linesData = sortLinesByOrder(linesData);
+  }
+  if (typeof renderLines === 'function') renderLines();
+  renderAdminModalContent();
+  showToast("Ordre automatique des lignes rétabli.");
+}
+
 function filterAdminLineList(q) {
   const query = q.toLowerCase().trim();
   const tbody = document.getElementById('adm-line-table-body');
@@ -1190,6 +1598,9 @@ function filterAdminLineList(q) {
 function startNewLineForm() {
   editingLineId = null;
   tempLineStops = ["Terminus A", "Arrêt intermédiaire 1", "Arrêt intermédiaire 2", "Terminus B"];
+  tempLinePastOperators = [];
+  tempLineOldPlans = [];
+  tempLineRollingStock = ['Iveco Urbanway 12 GNV'];
   lineAdminSubView = 'form';
   renderAdminModalContent();
 }
@@ -1262,7 +1673,7 @@ function getLineFormHtml(editId = null) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Couleur Badge</label>
             <div class="flex items-center gap-2">
@@ -1274,11 +1685,49 @@ function getLineFormHtml(editId = null) {
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Fréquence horaire</label>
             <input type="text" id="adm-line-freq" value="${l ? l.frequency : '10 min'}" placeholder="ex: 4 à 6 min, 10 min" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Matériel engagé</label>
-            <input type="text" id="adm-line-stock" value="${l && l.rollingStock ? (Array.isArray(l.rollingStock) ? l.rollingStock.join(', ') : l.rollingStock) : 'Iveco Urbanway 12 GNV'}" placeholder="ex: Iveco Urbanway 12 GNV, Citadis 305" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+        </div>
+
+        <!-- Matériel engagé (Sélectionnable par type/modèle) -->
+        <div class="pt-2 space-y-2">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Matériel engagé (cliquez pour sélectionner/désélectionner)</label>
+          <div id="adm-line-stock-chips" class="flex flex-wrap gap-1.5">
+            ${renderLineRollingStockChipsHtml()}
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="adm-line-stock-custom" placeholder="Ajouter un autre modèle / type de matériel..." class="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none" />
+            <button type="button" onclick="addCustomLineRollingStock()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition">+ Ajouter</button>
           </div>
         </div>
+
+        <!-- Exploitant actuel & Anciens exploitants de la ligne -->
+        ${(() => {
+          const opMeta = (l && l.keyConnections && !Array.isArray(l.keyConnections) && typeof l.keyConnections === 'object') ? l.keyConnections : {};
+          const curOp = (l && l.operator) || opMeta.currentOperator || 'RD Caen la Mer';
+          const curSince = (l && l.operatorSince) || opMeta.currentSince || '';
+          return `
+            <div class="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Exploitant actuel de la ligne</label>
+                  <input type="text" id="adm-line-operator" value="${curOp.replace(/"/g, '&quot;')}" placeholder="ex: RD Caen la Mer" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Exploite depuis</label>
+                  <input type="text" id="adm-line-since" value="${curSince.replace(/"/g, '&quot;')}" placeholder="ex: 1er Janvier 2025" class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-red-600 dark:text-red-400">Anciens exploitants de la ligne</span>
+                  <button type="button" onclick="addLinePastOperatorRow()" class="px-2.5 py-1 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[11px] font-bold transition">+ Ajouter un ancien exploitant</button>
+                </div>
+                <div id="adm-line-past-ops-container" class="space-y-2">
+                  ${renderLinePastOperatorsRowsHtml()}
+                </div>
+              </div>
+            </div>
+          `;
+        })()}
       </div>
 
       <!-- 2. PLANS DE LIGNE, DATES DE VALIDITÉ ET HORAIRES -->
@@ -1324,6 +1773,19 @@ function getLineFormHtml(editId = null) {
         </div>
       </div>
 
+      <!-- 4. ANCIENS PLANS DE LA LIGNE -->
+      <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="archive" class="w-4 h-4 text-amber-600"></i> 4. Anciens Plans de la Ligne
+          </h4>
+          <button type="button" onclick="addLineOldPlanRow()" class="px-3 py-1 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl text-xs font-bold transition">+ Ajouter un ancien plan</button>
+        </div>
+        <div id="adm-line-old-plans-container" class="space-y-3">
+          ${renderLineOldPlansRowsHtml()}
+        </div>
+      </div>
+
       <!-- FOOTER ACTIONS -->
       <div class="pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 sticky bottom-0 bg-white dark:bg-slate-900 py-2">
         <div>
@@ -1348,6 +1810,150 @@ function getLineFormHtml(editId = null) {
   `;
 }
 
+function getAvailableRollingStockOptions() {
+  const defaults = [
+    'Alstom Citadis 305 (Série 1000)',
+    'Iveco Urbanway 12 GNV',
+    'Iveco Urbanway 18 GNV',
+    'Iveco Crealis 18 GNV',
+    'Mercedes Citaro C2',
+    'Mercedes Citaro G C2',
+    'Heuliez GX 137',
+    'Heuliez GX 337',
+    'Bolloré Bluebus 6',
+    'Dietrich City 23',
+    'Iveco Crossway LE',
+    'Bus Standard (12m)',
+    'Bus Articulé (18m)',
+    'Midibus / Minibus'
+  ];
+  const merged = [...defaults];
+  (tempLineRollingStock || []).forEach(item => {
+    if (item && !merged.includes(item)) merged.push(item);
+  });
+  return merged;
+}
+
+function renderLineRollingStockChipsHtml() {
+  const options = getAvailableRollingStockOptions();
+  return options.map(opt => {
+    const active = (tempLineRollingStock || []).includes(opt);
+    const safeOpt = opt.replace(/'/g, "\\'");
+    return `
+      <button type="button" onclick="toggleLineRollingStock('${safeOpt}')" class="px-2.5 py-1 rounded-xl text-[11px] font-bold border transition ${active ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}">
+        ${active ? '✓ ' : '+ '}${opt}
+      </button>
+    `;
+  }).join('');
+}
+
+function toggleLineRollingStock(item) {
+  const idx = tempLineRollingStock.indexOf(item);
+  if (idx >= 0) {
+    tempLineRollingStock.splice(idx, 1);
+  } else {
+    tempLineRollingStock.push(item);
+  }
+  const el = document.getElementById('adm-line-stock-chips');
+  if (el) el.innerHTML = renderLineRollingStockChipsHtml();
+}
+
+function addCustomLineRollingStock() {
+  const input = document.getElementById('adm-line-stock-custom');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+  if (!tempLineRollingStock.includes(val)) tempLineRollingStock.push(val);
+  input.value = '';
+  const el = document.getElementById('adm-line-stock-chips');
+  if (el) el.innerHTML = renderLineRollingStockChipsHtml();
+}
+
+function renderLineOldPlansRowsHtml() {
+  if (!tempLineOldPlans || tempLineOldPlans.length === 0) {
+    return `<p class="text-[11px] text-slate-400 italic">Aucun ancien plan archivé. Cliquez sur "+ Ajouter un ancien plan".</p>`;
+  }
+  return tempLineOldPlans.map((op, idx) => {
+    const stopsText = Array.isArray(op.stops) ? op.stops.join(', ') : (op.stops || '');
+    return `
+      <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-900/60 space-y-2">
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+          <input type="text" value="${(op.date || '').replace(/"/g, '&quot;')}" oninput="updateLineOldPlanField(${idx}, 'date', this.value)" placeholder="Date / Période (ex: Sept. 2022 - Août 2024)" class="sm:col-span-5 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+          <input type="text" value="${(op.operator || '').replace(/"/g, '&quot;')}" oninput="updateLineOldPlanField(${idx}, 'operator', this.value)" placeholder="Exploitant (ex: Keolis Caen)" class="sm:col-span-6 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none font-semibold" />
+          <button type="button" onclick="removeLineOldPlanRow(${idx})" class="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 transition flex items-center justify-center" title="Supprimer">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <input type="text" value="${(op.info || '').replace(/"/g, '&quot;')}" oninput="updateLineOldPlanField(${idx}, 'info', this.value)" placeholder="Petites infos (ex: Ancien terminus à Place de la Mare...)" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+        <textarea rows="2" oninput="updateLineOldPlanField(${idx}, 'stops', this.value)" placeholder="Arrêts de l'ancien plan séparés par des virgules..." class="w-full px-2.5 py-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none">${stopsText}</textarea>
+      </div>
+    `;
+  }).join('');
+}
+
+function refreshLineOldPlansRows() {
+  const container = document.getElementById('adm-line-old-plans-container');
+  if (container) {
+    container.innerHTML = renderLineOldPlansRowsHtml();
+    lucide.createIcons();
+  }
+}
+
+function addLineOldPlanRow() {
+  tempLineOldPlans.push({ date: '', operator: '', info: '', stops: '' });
+  refreshLineOldPlansRows();
+}
+
+function removeLineOldPlanRow(idx) {
+  tempLineOldPlans.splice(idx, 1);
+  refreshLineOldPlansRows();
+}
+
+function updateLineOldPlanField(idx, field, value) {
+  if (tempLineOldPlans[idx]) {
+    tempLineOldPlans[idx][field] = value;
+  }
+}
+
+function renderLinePastOperatorsRowsHtml() {
+  if (!tempLinePastOperators || tempLinePastOperators.length === 0) {
+    return `<p class="text-[11px] text-slate-400 italic">Aucun ancien exploitant enregistré pour cette ligne.</p>`;
+  }
+  return tempLinePastOperators.map((op, idx) => `
+    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center p-2 bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/60">
+      <input type="text" value="${(op.operator || '').replace(/"/g, '&quot;')}" oninput="updateLinePastOperatorField(${idx}, 'operator', this.value)" placeholder="Ancien exploitant (ex: Keolis Caen)" class="sm:col-span-6 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none font-semibold" />
+      <input type="text" value="${(op.period || '').replace(/"/g, '&quot;')}" oninput="updateLinePastOperatorField(${idx}, 'period', this.value)" placeholder="Période (ex: 2019 - 2024)" class="sm:col-span-5 px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none" />
+      <button type="button" onclick="removeLinePastOperatorRow(${idx})" class="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 transition flex items-center justify-center" title="Supprimer">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function refreshLinePastOperatorsRows() {
+  const container = document.getElementById('adm-line-past-ops-container');
+  if (container) {
+    container.innerHTML = renderLinePastOperatorsRowsHtml();
+    lucide.createIcons();
+  }
+}
+
+function addLinePastOperatorRow() {
+  tempLinePastOperators.push({ operator: '', period: '' });
+  refreshLinePastOperatorsRows();
+}
+
+function removeLinePastOperatorRow(idx) {
+  tempLinePastOperators.splice(idx, 1);
+  refreshLinePastOperatorsRows();
+}
+
+function updateLinePastOperatorField(idx, field, value) {
+  if (tempLinePastOperators[idx]) {
+    tempLinePastOperators[idx][field] = value;
+  }
+}
+
 function handleSaveLine(e, editId) {
   e.preventDefault();
 
@@ -1361,14 +1967,33 @@ function handleSaveLine(e, editId) {
   const termB = document.getElementById('adm-line-termB').value.trim();
   const color = document.getElementById('adm-line-color').value;
   const freq = document.getElementById('adm-line-freq').value.trim() || '10 min';
-  const stockRaw = document.getElementById('adm-line-stock').value.trim();
   const stopsRaw = document.getElementById('adm-line-stops').value.trim();
   const desc = document.getElementById('adm-line-desc').value.trim() || `Liaison régulière reliant ${termA} à ${termB}.`;
+  const lineOpEl = document.getElementById('adm-line-operator');
+  const lineSinceEl = document.getElementById('adm-line-since');
+  const lineOp = lineOpEl ? lineOpEl.value.trim() : 'RD Caen la Mer';
+  const lineSince = lineSinceEl ? lineSinceEl.value.trim() : '';
+  const pastOpsClean = (tempLinePastOperators || [])
+    .filter(op => op && (op.operator || op.period))
+    .map(op => ({ operator: (op.operator || '').trim(), period: (op.period || '').trim() }));
 
-  const stock = stockRaw ? stockRaw.split(',').map(s => s.trim()).filter(s => s.length > 0) : ['Iveco Urbanway 12 GNV'];
+  const stock = (tempLineRollingStock && tempLineRollingStock.length > 0) ? [...tempLineRollingStock] : ['Iveco Urbanway 12 GNV'];
   const stops = stopsRaw ? stopsRaw.split(/,|\n/).map(s => s.trim()).filter(s => s.length > 0) : [termA, "Arrêt intermédiaire", termB];
 
+  const oldPlansClean = (tempLineOldPlans || [])
+    .filter(op => op && (op.date || op.operator || op.info || (op.stops && String(op.stops).trim())))
+    .map(op => ({
+      date: (op.date || '').trim(),
+      operator: (op.operator || '').trim(),
+      info: (op.info || '').trim(),
+      stops: Array.isArray(op.stops)
+        ? op.stops
+        : String(op.stops || '').split(/,|\n/).map(s => s.trim()).filter(Boolean)
+    }));
+
+  const existingLine = linesData.find(l => l.id === (editId || `L${num.replace(/\s+/g, '')}`) || l.number === num);
   const lineObj = {
+    ...(existingLine || {}),
     id: editId || `L${num.replace(/\s+/g, '')}`,
     number: num,
     name: name,
@@ -1386,8 +2011,14 @@ function handleSaveLine(e, editId) {
     schedulePdfUrl: pdfUrl,
     stops: stops,
     rollingStock: stock,
+    keyConnections: {
+      currentOperator: lineOp,
+      currentSince: lineSince,
+      pastOperators: pastOpsClean,
+      oldPlans: oldPlansClean
+    },
     description: desc,
-    history: `Ligne du réseau Twisto.`
+    history: (existingLine && existingLine.history) || `Ligne du réseau Twisto.`
   };
 
   const existingIdx = linesData.findIndex(l => l.id === lineObj.id || l.number === num);
@@ -2437,7 +3068,14 @@ const SITE_SETTINGS_KEY = 'histo14_site_settings_v1';
 function getSiteSettings() {
   try {
     const raw = localStorage.getItem(SITE_SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.navLabels && parsed.navLabels.lines === 'Lignes & Tram') {
+        parsed.navLabels.lines = 'Lignes/affectations';
+        localStorage.setItem(SITE_SETTINGS_KEY, JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   } catch(e) {}
   return {
     siteName: 'Histo14Bus',
@@ -2447,7 +3085,7 @@ function getSiteSettings() {
     footerCredit: 'Développé par Nolhanbj • Données informatives.',
     navLabels: {
       fleet: 'Parc Véhicules',
-      lines: 'Lignes & Tram',
+      lines: 'Lignes/affectations',
       movements: 'Mouvements',
       news: 'Le MAG',
       gallery: 'Galerie',
@@ -2538,7 +3176,7 @@ function getSiteTabContentHtml() {
   const s = getSiteSettings();
   const tabs = [
     { key: 'fleet', label: 'Parc Véhicules', icon: 'layout-grid' },
-    { key: 'lines', label: 'Lignes & Tram', icon: 'git-branch' },
+    { key: 'lines', label: 'Lignes/affectations', icon: 'git-branch' },
     { key: 'movements', label: 'Mouvements', icon: 'repeat' },
     { key: 'news', label: 'Le MAG', icon: 'newspaper' },
     { key: 'gallery', label: 'Galerie', icon: 'camera' },
@@ -2677,7 +3315,7 @@ function getDefaultAppearanceSettings() {
   return {
     primaryColor: '#00875A',
     secondaryColor: '#0D9488',
-    defaultFleetView: 'naotc',
+    defaultFleetView: 'table',
     heroStatsVisible: true,
     networkCardsVisible: true,
     fullOptionMode: true,
@@ -2805,6 +3443,14 @@ function getAppearanceTabContentHtml() {
         </h4>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
+            <input type="radio" name="defaultFleetView" value="table" ${app.defaultFleetView === 'table' ? 'checked' : ''} class="mt-1 accent-violet-600" />
+            <div>
+              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue N° de Parc</div>
+              <div class="text-[11px] text-slate-400">Tableau compact par numéro de parc</div>
+            </div>
+          </label>
+
+          <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
             <input type="radio" name="defaultFleetView" value="naotc" ${app.defaultFleetView === 'naotc' ? 'checked' : ''} class="mt-1 accent-violet-600" />
             <div>
               <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Par Modèle</div>
@@ -2815,16 +3461,8 @@ function getAppearanceTabContentHtml() {
           <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
             <input type="radio" name="defaultFleetView" value="grid" ${app.defaultFleetView === 'grid' ? 'checked' : ''} class="mt-1 accent-violet-600" />
             <div>
-              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Grille de Cartes</div>
+              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Cartes</div>
               <div class="text-[11px] text-slate-400">Fiches individuelles avec photos et spécifications</div>
-            </div>
-          </label>
-
-          <label class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer hover:border-violet-400 transition">
-            <input type="radio" name="defaultFleetView" value="table" ${app.defaultFleetView === 'table' ? 'checked' : ''} class="mt-1 accent-violet-600" />
-            <div>
-              <div class="font-bold text-xs text-slate-800 dark:text-white">Vue Tableau Dense</div>
-              <div class="text-[11px] text-slate-400">Tableau compact de style tableur technique</div>
             </div>
           </label>
         </div>

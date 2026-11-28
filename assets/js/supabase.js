@@ -127,11 +127,80 @@ async function fetchGalleryFromSupabase() {
    2. SAUVEGARDE & SYNCHRONISATION (ÉCRITURE SUPABASE)
    ========================================================================= */
 
+function sanitizeVehicleForSupabase(v) {
+  if (!v) return null;
+  const parsedDoors = typeof v.doors === 'number'
+    ? v.doors
+    : (v.doors ? parseInt(String(v.doors), 10) : null);
+  return {
+    id: String(v.id || `bus_${v.number}`),
+    number: String(v.number || ''),
+    brand: v.brand || null,
+    model: v.model || null,
+    type: v.type || null,
+    gabarit: v.gabarit || null,
+    network: v.network || null,
+    operator: v.operator || null,
+    depot: v.depot || null,
+    energy: v.energy || null,
+    status: v.status || 'Actuel',
+    plate: v.plate || v.registration || null,
+    registration: v.registration || v.plate || null,
+    deliveryDate: v.deliveryDate || null,
+    inServiceDate: v.inServiceDate || v.serviceDate || null,
+    serviceDate: v.serviceDate || v.inServiceDate || null,
+    capacity: v.capacity || null,
+    doors: Number.isFinite(parsedDoors) ? parsedDoors : null,
+    length: v.length || null,
+    livery: v.livery || null,
+    lines: Array.isArray(v.lines) ? v.lines : [],
+    equipments: Array.isArray(v.equipments) ? v.equipments : (Array.isArray(v.features) ? v.features : []),
+    photo: v.photo || null,
+    history: Array.isArray(v.history) ? v.history : [],
+    notes: v.notes || null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function sanitizeLineForSupabase(l) {
+  if (!l) return null;
+  const stockStr = Array.isArray(l.rollingStock)
+    ? l.rollingStock.join(', ')
+    : (l.rollingStock || null);
+  return {
+    id: String(l.id || l.number),
+    number: String(l.number || ''),
+    name: l.name || null,
+    type: l.type || null,
+    category: l.category || null,
+    color: l.color || null,
+    textColor: l.textColor || '#FFFFFF',
+    terminusA: l.terminusA || null,
+    terminusB: l.terminusB || null,
+    stationsCount: typeof l.stationsCount === 'number' ? l.stationsCount : (Array.isArray(l.stops) ? l.stops.length : null),
+    stopsCount: typeof l.stopsCount === 'number' ? l.stopsCount : (Array.isArray(l.stops) ? l.stops.length : null),
+    frequency: l.frequency || null,
+    validFrom: l.validFrom || null,
+    validUntil: l.validUntil || null,
+    planDate: l.planDate || null,
+    planUrl: l.planUrl || null,
+    schedulePdfUrl: l.schedulePdfUrl || null,
+    connections: (l.connections && typeof l.connections === 'object') ? l.connections : {},
+    accessibility: Array.isArray(l.accessibility) ? l.accessibility : [],
+    stops: Array.isArray(l.stops) ? l.stops : [],
+    description: l.description || null,
+    rollingStock: stockStr,
+    keyConnections: l.keyConnections || [],
+    history: typeof l.history === 'string' ? l.history : (l.history ? JSON.stringify(l.history) : null),
+    updated_at: new Date().toISOString()
+  };
+}
+
 async function saveVehicleToSupabase(vehicle) {
   const sb = getSupabase();
   if (!sb || !vehicle) return false;
   try {
-    const payload = { ...vehicle, updated_at: new Date().toISOString() };
+    const payload = sanitizeVehicleForSupabase(vehicle);
     const { error } = await sb.from('vehicles').upsert(payload, { onConflict: 'id' });
     if (error) {
       console.error('[Supabase] saveVehicle error:', error);
@@ -165,7 +234,7 @@ async function saveLineToSupabase(line) {
   const sb = getSupabase();
   if (!sb || !line) return false;
   try {
-    const payload = { ...line, updated_at: new Date().toISOString() };
+    const payload = sanitizeLineForSupabase(line);
     const { error } = await sb.from('lines').upsert(payload, { onConflict: 'id' });
     if (error) {
       console.error('[Supabase] saveLine error:', error);
@@ -318,7 +387,7 @@ async function transferAllDataToSupabase(onProgress) {
   if (typeof fleetData !== 'undefined' && Array.isArray(fleetData) && fleetData.length > 0) {
     const chunkSize = 50;
     for (let i = 0; i < fleetData.length; i += chunkSize) {
-      const chunk = fleetData.slice(i, i + chunkSize);
+      const chunk = fleetData.slice(i, i + chunkSize).map(sanitizeVehicleForSupabase);
       const { error } = await sb.from('vehicles').upsert(chunk, { onConflict: 'id' });
       if (error) throw new Error("Erreur insertion flotte: " + error.message);
       report.vehicles += chunk.length;
@@ -332,9 +401,10 @@ async function transferAllDataToSupabase(onProgress) {
   // 2. Transfert Lignes
   if (typeof onProgress === 'function') onProgress("Transfert des lignes & plans...", 55);
   if (typeof linesData !== 'undefined' && Array.isArray(linesData) && linesData.length > 0) {
-    const { error } = await sb.from('lines').upsert(linesData, { onConflict: 'id' });
+    const sanitizedLines = linesData.map(sanitizeLineForSupabase);
+    const { error } = await sb.from('lines').upsert(sanitizedLines, { onConflict: 'id' });
     if (error) throw new Error("Erreur insertion lignes: " + error.message);
-    report.lines = linesData.length;
+    report.lines = sanitizedLines.length;
   }
 
   // 3. Transfert News

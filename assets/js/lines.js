@@ -9,6 +9,58 @@ let activeLineCategory = "all";
 let currentLineDirection = {}; // { lineId: "forward"|"reverse" }
 let lineOrientation = "horizontal"; // "horizontal" par défaut (lisible comme les plans officiels), avec bascule "vertical" possible
 let expandedLineId = null; // ID de la ligne dont le plan thermomètre est affiché en direct
+const LINES_ORDER_STORAGE_KEY = "histo14_lines_order_v1";
+
+function getCustomLinesOrder() {
+  try {
+    const raw = localStorage.getItem(LINES_ORDER_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveCustomLinesOrder(orderIds) {
+  try {
+    localStorage.setItem(LINES_ORDER_STORAGE_KEY, JSON.stringify(orderIds));
+  } catch (e) {}
+}
+
+function getNaturalLineSortRank(line) {
+  const num = String(line.number || line.id || "").trim().toUpperCase();
+  // 1. Tramways T1, T2, T3...
+  const tramMatch = num.match(/^T(\d+)$/);
+  if (tramMatch) return { group: 0, n: parseInt(tramMatch[1], 10), suffix: "" };
+  // 2. Numeric bus lines (1, 2, ..., 10, 10EX, 11, ...)
+  const busMatch = num.match(/^(\d+)(.*)$/);
+  if (busMatch) return { group: 1, n: parseInt(busMatch[1], 10), suffix: busMatch[2] || "" };
+  // 3. Other lines (FLEX, Navettes, etc.)
+  return { group: 2, n: 9999, suffix: num };
+}
+
+function sortLinesByOrder(lines) {
+  if (!Array.isArray(lines)) return [];
+  const customOrder = getCustomLinesOrder();
+  const orderMap = new Map();
+  customOrder.forEach((id, idx) => orderMap.set(String(id), idx));
+
+  return [...lines].sort((a, b) => {
+    const idxA = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : (orderMap.has(String(a.number)) ? orderMap.get(String(a.number)) : -1);
+    const idxB = orderMap.has(String(b.id)) ? orderMap.get(String(b.id)) : (orderMap.has(String(b.number)) ? orderMap.get(String(b.number)) : -1);
+
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+
+    const rA = getNaturalLineSortRank(a);
+    const rB = getNaturalLineSortRank(b);
+    if (rA.group !== rB.group) return rA.group - rB.group;
+    if (rA.n !== rB.n) return rA.n - rB.n;
+    return rA.suffix.localeCompare(rB.suffix, "fr");
+  });
+}
 
 const LINE_COLORS = {
   "T1": { bg: "#13a538", text: "#fff" },
@@ -126,6 +178,7 @@ async function initLines() {
         localStorage.setItem("histo14_lines_data_v3", JSON.stringify(linesData));
       }
     }
+    linesData = sortLinesByOrder(linesData);
     renderLines();
   } catch (err) { console.error("Erreur lignes:", err); }
 }
@@ -140,6 +193,8 @@ function filterLinesByCategory(category, btnEl) {
 function renderLines() {
   const container = document.getElementById("lines-container");
   if (!container) return;
+
+  linesData = sortLinesByOrder(linesData);
 
   const filtered = linesData.filter(line => {
     if (activeLineCategory === "all") return true;
@@ -529,7 +584,12 @@ function renderLineModalBody(line) {
   <div class="p-6 sm:p-8 space-y-6 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-b-3xl line-modal-body-scroll" style="max-height:72vh;overflow-y:auto;">
     <div>
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h3 class="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2"><i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> Plan de Ligne Officiel</h3>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h3 class="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2"><i data-lucide="route" class="w-4 h-4 text-emerald-600"></i> Plan de Ligne Officiel</h3>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+            <i data-lucide="calendar" class="w-3 h-3"></i> ${line.validFrom && line.validUntil ? `${line.validFrom} – ${line.validUntil}` : planDate}
+          </span>
+        </div>
         <div class="flex items-center gap-2 flex-wrap">
           <button onclick="toggleLineDirection('${line.id}')" class="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
             <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> ${stops[0]} &#8594; ${stops[stops.length-1]}
@@ -545,6 +605,50 @@ function renderLineModalBody(line) {
           : `<div class="naotc-plan-scroll">${planHtml}</div>`
         }
       </div>
+
+      ${(() => {
+        const opMeta = (line.keyConnections && !Array.isArray(line.keyConnections) && typeof line.keyConnections === 'object') ? line.keyConnections : {};
+        const oldPlans = Array.isArray(opMeta.oldPlans) ? opMeta.oldPlans : [];
+        const oldPanelId = `line-old-plans-${String(line.id).replace(/[^a-zA-Z0-9_-]/g, '')}`;
+        return `
+          <div class="mt-3">
+            <button type="button" onclick="const el = document.getElementById('${oldPanelId}'); if(el){ el.classList.toggle('hidden'); }" class="w-full px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between transition">
+              <span class="flex items-center gap-2">
+                <i data-lucide="archive" class="w-4 h-4 text-amber-600"></i>
+                Anciens plans de la ligne (${oldPlans.length})
+              </span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+            </button>
+            <div id="${oldPanelId}" class="hidden mt-3 space-y-4">
+              ${oldPlans.length > 0 ? oldPlans.map((op, i) => {
+                const oldStops = Array.isArray(op.stops) && op.stops.length > 0
+                  ? op.stops
+                  : (typeof op.stops === 'string' ? op.stops.split(/,|\n/).map(s => s.trim()).filter(Boolean) : []);
+                return `
+                  <div class="p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span class="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <i data-lucide="history" class="w-3.5 h-3.5 text-amber-600"></i>
+                        Ancien plan #${i + 1}
+                      </span>
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        ${op.date ? `<span class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">📅 ${op.date}</span>` : ''}
+                        ${op.operator ? `<span class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">🏢 ${op.operator}</span>` : ''}
+                      </div>
+                    </div>
+                    ${op.info ? `<p class="text-xs text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-700/70">${op.info}</p>` : ''}
+                    ${oldStops.length > 0 ? `
+                      <div class="bg-white dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                        <div class="naotc-plan-scroll">${renderNaotcPlan({ ...line, connections: {}, accessibility: [] }, oldStops)}</div>
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('') : `<p class="text-xs text-slate-400 italic px-2">Aucun ancien plan archivé pour cette ligne. Ajoutez-en depuis « Éditer le Plan » dans l'Espace Admin.</p>`}
+            </div>
+          </div>
+        `;
+      })()}
     </div>
     <div>
       <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2 flex items-center gap-2"><i data-lucide="map-pin" class="w-4 h-4 text-emerald-600"></i> Tracé &amp; Quartiers</h3>
@@ -552,8 +656,54 @@ function renderLineModalBody(line) {
     </div>
     <div>
       <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2"><i data-lucide="bus" class="w-4 h-4 text-emerald-600"></i> Matériel Engagé</h3>
-      <div class="flex flex-wrap gap-2">${(line.rollingStock ? (Array.isArray(line.rollingStock) ? line.rollingStock : [line.rollingStock]) : ["Bus Standard"]).map(m => `<span class="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> ${m}</span>`).join("")}</div>
+      <div class="flex flex-wrap gap-2">${(line.rollingStock ? (Array.isArray(line.rollingStock) ? line.rollingStock : String(line.rollingStock).split(',').map(s => s.trim()).filter(Boolean)) : ["Bus Standard"]).map(m => `<span class="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> ${m}</span>`).join("")}</div>
     </div>
+    ${(() => {
+      const opMeta = (line.keyConnections && !Array.isArray(line.keyConnections) && typeof line.keyConnections === 'object')
+        ? line.keyConnections
+        : {};
+      const currentOp = line.operator || opMeta.currentOperator || 'RD Caen la Mer';
+      const currentSince = line.operatorSince || opMeta.currentSince || '';
+      const pastOps = Array.isArray(opMeta.pastOperators) ? opMeta.pastOperators : [];
+      const pastPanelId = `line-past-ops-${String(line.id).replace(/[^a-zA-Z0-9_-]/g, '')}`;
+      return `
+        <div class="space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="building-2" class="w-4 h-4 text-emerald-600"></i> Exploitant de la ligne
+            </h3>
+            ${pastOps.length > 0 ? `
+              <button type="button" onclick="const el = document.getElementById('${pastPanelId}'); if(el) el.classList.toggle('hidden');" class="px-3 py-1 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 hover:bg-red-100 transition flex items-center gap-1.5">
+                <i data-lucide="history" class="w-3.5 h-3.5"></i> Voir les anciens exploitants (${pastOps.length})
+              </button>
+            ` : ''}
+          </div>
+          <div class="p-3.5 rounded-2xl border bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/70 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+            <div class="flex items-center gap-2 font-bold text-sm text-emerald-900 dark:text-emerald-200">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+              <span>${currentOp}</span>
+            </div>
+            ${currentSince ? `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">Depuis ${currentSince}</span>` : ''}
+          </div>
+          ${pastOps.length > 0 ? `
+            <div id="${pastPanelId}" class="hidden space-y-2 pt-1">
+              <span class="text-xs font-bold text-red-600 dark:text-red-400 block">Anciens exploitants de la ligne :</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                ${pastOps.map(op => `
+                  <div class="p-3 rounded-xl border bg-red-50/80 dark:bg-red-950/40 border-red-200 dark:border-red-900/70 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 font-bold text-xs text-red-900 dark:text-red-200">
+                      <i data-lucide="history" class="w-3.5 h-3.5 text-red-600 flex-shrink-0"></i>
+                      <span>${op.operator || 'Ancien exploitant'}</span>
+                    </div>
+                    ${op.period ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-100/80 dark:bg-red-900/50 text-red-700 dark:text-red-300">${op.period}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    })()}
     ${line.history ? `<div><h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2 flex items-center gap-2"><i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i> Historique</h3><p class="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800">${line.history}</p></div>` : ""}
     <div>
       <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2"><i data-lucide="list" class="w-4 h-4 text-emerald-600"></i> Véhicules référencés (${assigned.length})</h3>

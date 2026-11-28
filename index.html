@@ -105,7 +105,7 @@
             <i data-lucide="layout-grid" class="w-4 h-4"></i> Parc Véhicules
           </button>
           <button onclick="switchTab('lines')" data-tab="lines" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
-            <i data-lucide="git-branch" class="w-4 h-4"></i> Lignes & Tram
+            <i data-lucide="git-branch" class="w-4 h-4"></i> Lignes/affectations
           </button>
           <button onclick="switchTab('movements')" data-tab="movements" class="nav-link px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
             <i data-lucide="repeat" class="w-4 h-4"></i> Mouvements
@@ -362,19 +362,19 @@
             </select>
           </div>
 
-          <!-- View Mode (NAOTC Gabarit vs Grid vs Table) -->
+          <!-- View Mode (N° de Parc vs Par Modèle vs Cartes) -->
           <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold flex-shrink-0">
-            <button id="view-mode-naotc" onclick="setFleetViewMode('naotc')" class="px-3 py-1.5 rounded-xl transition bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5" title="Vue par Gabarit et Modèle">
+            <button id="view-mode-table" onclick="setFleetViewMode('table')" class="px-3 py-1.5 rounded-xl transition bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5" title="Vue Tableau par N° de Parc">
+              <i data-lucide="list" class="w-4 h-4"></i>
+              <span>N° de Parc</span>
+            </button>
+            <button id="view-mode-naotc" onclick="setFleetViewMode('naotc')" class="px-3 py-1.5 rounded-xl transition text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1.5" title="Vue par Gabarit et Modèle">
               <i data-lucide="layers" class="w-4 h-4"></i>
               <span>Par Modèle</span>
             </button>
             <button id="view-mode-grid" onclick="setFleetViewMode('grid')" class="px-3 py-1.5 rounded-xl transition text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1.5" title="Vue Grille de Cartes">
               <i data-lucide="grid" class="w-4 h-4"></i>
               <span class="hidden md:inline">Cartes</span>
-            </button>
-            <button id="view-mode-table" onclick="setFleetViewMode('table')" class="px-3 py-1.5 rounded-xl transition text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1.5" title="Vue Tableau">
-              <i data-lucide="list" class="w-4 h-4"></i>
-              <span class="hidden md:inline">Tableau</span>
             </button>
           </div>
         </div>

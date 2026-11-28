@@ -13,8 +13,129 @@ let activeFilters = {
   series: 'all'
 };
 let fleetSort = 'asc'; // 'asc', 'desc', 'year-desc', 'year-asc'
-let viewMode = 'naotc'; // 'naotc', 'grid', or 'table'
+let viewMode = 'table'; // 'table' (N° de Parc), 'naotc' (Par Modèle), or 'grid' (Cartes)
 let currentVehicleIndex = -1;
+
+/**
+ * Détermine si une affectation de ligne est ancienne (rouge) ou actuelle (verte).
+ * Reconnaît les plages avec date de fin ex: "(Septembre 2025 - Janvier 2026)" ou "(Ancien)".
+ */
+function isPastLineAssignment(entry) {
+  if (!entry) return false;
+  if (typeof entry === 'object') return entry.status === 'past';
+  const str = String(entry).trim();
+  const lower = str.toLowerCase();
+  if (/\((ancien|ancienne|passé|ex|réformé)/i.test(lower) || /\[(ancien|ancienne)\]/i.test(lower)) {
+    return true;
+  }
+  const parenMatch = str.match(/\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    const inner = parenMatch[1].trim();
+    if (/^(depuis|actuel)/i.test(inner)) return false;
+    if (/[-–→]|\bau\b/i.test(inner)) return true;
+  }
+  return false;
+}
+
+function formatLineAssignmentLabel(entry) {
+  if (!entry) return '';
+  if (typeof entry === 'object') {
+    return entry.period ? `${entry.lines || ''} (${entry.period})` : (entry.lines || '');
+  }
+  return String(entry);
+}
+
+function parseFrenchPeriodSortValue(str) {
+  if (!str) return 0;
+  const s = String(str).trim().toLowerCase();
+  // Format ISO YYYY-MM-DD ou DD/MM/YYYY
+  const isoMatch = s.match(/(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/);
+  if (isoMatch) {
+    return parseInt(isoMatch[1], 10) * 10000 + parseInt(isoMatch[2], 10) * 100 + parseInt(isoMatch[3] || '1', 10);
+  }
+  const frSlash = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (frSlash) {
+    return parseInt(frSlash[3], 10) * 10000 + parseInt(frSlash[2], 10) * 100 + parseInt(frSlash[1], 10);
+  }
+  const months = {
+    janvier: 1, janv: 1,
+    fevrier: 2, février: 2, fev: 2, fév: 2,
+    mars: 3,
+    avril: 4, avr: 4,
+    mai: 5,
+    juin: 6,
+    juillet: 7, juil: 7,
+    aout: 8, août: 8,
+    septembre: 9, sept: 9,
+    octobre: 10, oct: 10,
+    novembre: 11, nov: 11,
+    decembre: 12, décembre: 12, dec: 12, déc: 12
+  };
+  const monthNames = Object.keys(months).join('|');
+  const regex = new RegExp(`(?:(${monthNames})\\s+)?(\\d{4})`, 'gi');
+  let match;
+  let best = 0;
+  while ((match = regex.exec(s)) !== null) {
+    const m = match[1] ? (months[match[1].toLowerCase()] || 12) : 12;
+    const y = parseInt(match[2], 10);
+    const val = y * 10000 + m * 100 + 1;
+    if (val > best) best = val;
+  }
+  return best;
+}
+
+function splitLineAssignmentParts(entry) {
+  const str = formatLineAssignmentLabel(entry).trim();
+  const parenMatch = str.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return { linesText: parenMatch[1].trim(), period: parenMatch[2].trim() };
+  }
+  return { linesText: str, period: '' };
+}
+
+function findMatchingLineObj(token) {
+  if (typeof linesData === 'undefined' || !Array.isArray(linesData)) return null;
+  const clean = String(token || '').trim().toUpperCase();
+  if (!clean) return null;
+  const stripped = clean.replace(/^(LIGNE|LIANE|TRAM|TRAMWAY)\s+/i, '').trim();
+  return linesData.find(l => {
+    const num = String(l.number || '').toUpperCase();
+    const id = String(l.id || '').toUpperCase();
+    if (num === clean || id === clean || num === stripped || id === stripped) return true;
+    if ((stripped === '6A' || stripped === '6B') && (num === '6' || id === '6')) return true;
+    return false;
+  }) || null;
+}
+
+function openLinePlanFromVehicle(token) {
+  const match = findMatchingLineObj(token);
+  if (typeof closeVehicleModal === 'function') closeVehicleModal();
+  if (typeof switchTab === 'function') switchTab('lines');
+  if (match && typeof openLineModal === 'function') {
+    setTimeout(() => openLineModal(match.id), 150);
+  }
+}
+
+function renderLineLogoBadgesHtml(linesText) {
+  const tokens = String(linesText || '')
+    .split(/[,/]+/)
+    .map(t => t.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) return '';
+  return tokens.map(token => {
+    const match = findMatchingLineObj(token);
+    const style = match
+      ? { bg: match.color || '#00875A', text: match.textColor || '#FFFFFF' }
+      : (typeof getLineBadgeStyle === 'function' ? getLineBadgeStyle(token) : { bg: '#00875A', text: '#FFFFFF' });
+    const safeToken = token.replace(/'/g, "\\'");
+    const label = token.replace(/^(Liane|Ligne)\s+/i, '');
+    return `
+      <button type="button" onclick="openLinePlanFromVehicle('${safeToken}')" class="px-2.5 py-1 rounded-lg text-xs font-black shadow-sm hover:scale-105 hover:shadow-md transition cursor-pointer inline-flex items-center justify-center min-w-[32px]" style="background:${style.bg};color:${style.text};" title="Ouvrir le plan de la ligne ${token}">
+        ${label}
+      </button>
+    `;
+  }).join('');
+}
 
 async function initFleet() {
   try {
@@ -593,9 +714,11 @@ function renderVehicleTable(vehicles) {
         <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60">
           ${vehicles.map(v => `
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition cursor-pointer" onclick="openVehicleModal('${v.id}')">
-              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full ${v.status === 'Actuel' ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-                N° ${v.number}
+              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${v.status === 'Actuel' ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+                  <span>N° ${v.number}</span>
+                </div>
               </td>
               <td class="py-3.5 px-4 font-bold text-xs text-emerald-600 dark:text-emerald-400">${v.network || 'Twisto'}</td>
               <td class="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">${v.model}</td>
@@ -714,22 +837,15 @@ function openVehicleModal(id) {
     <!-- Modal Body -->
     <div class="p-6 sm:p-8 space-y-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-b-3xl max-h-[70vh] overflow-y-auto">
       
-      <!-- Top Action & License Plate Bar -->
-      <div class="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-3">
-          <span class="text-xs font-semibold text-slate-400 uppercase">Immatriculation :</span>
-          ${renderLicensePlate(vehicle.registration)}
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- Direct Full Vehicle Editor Trigger Button -->
-          <button onclick="closeVehicleModal(); setTimeout(() => openEditVehicleModal('${vehicle.id}'), 120);" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-md shadow-emerald-600/25" title="Modifier la fiche complète de ce véhicule">
-            <i data-lucide="edit-3" class="w-4 h-4"></i> 
-            <span>Modifier la fiche</span>
-          </button>
-          <button onclick="shareVehicle('${vehicle.number}', '${vehicle.model}')" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-            <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Partager
-          </button>
-        </div>
+      <!-- Top Action Bar -->
+      <div class="flex flex-wrap items-center justify-end gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <button onclick="closeVehicleModal(); setTimeout(() => openEditVehicleModal('${vehicle.id}'), 120);" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-md shadow-emerald-600/25" title="Modifier la fiche complète de ce véhicule">
+          <i data-lucide="edit-3" class="w-4 h-4"></i> 
+          <span>Modifier la fiche</span>
+        </button>
+        <button onclick="shareVehicle('${vehicle.number}', '${vehicle.model}')" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+          <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Partager
+        </button>
       </div>
 
       <!-- 1. Technical Specifications Grid (Fiche Technique & Informations) -->
@@ -774,6 +890,10 @@ function openVehicleModal(id) {
             <span class="text-xs text-slate-400 block mb-0.5">Livrée actuelle</span>
             <span class="font-bold text-sm text-slate-800 dark:text-slate-200">${vehicle.livery || 'Twisto'}</span>
           </div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">Immatriculation</span>
+            ${renderLicensePlate(vehicle.registration)}
+          </div>
           ${vehicle.vin ? `
             <div class="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 col-span-2 sm:col-span-1">
               <span class="text-xs text-slate-400 block mb-0.5">Numéro de Châssis (VIN)</span>
@@ -783,21 +903,181 @@ function openVehicleModal(id) {
         </div>
       </div>
 
-      <!-- 2. Assigned Lines -->
-      ${vehicle.lines && vehicle.lines.length > 0 ? `
-        <div>
-          <h3 class="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-            <i data-lucide="route" class="w-5 h-5 text-emerald-600"></i> Lignes Habituellement Affectées
-          </h3>
-          <div class="flex flex-wrap gap-2">
-            ${vehicle.lines.map(l => `
-              <span class="px-3.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold rounded-xl text-sm shadow-sm flex items-center gap-1">
-                <i data-lucide="navigation" class="w-3.5 h-3.5"></i> ${l}
-              </span>
-            `).join('')}
+      <!-- 2. Assigned Lines (Affectation actuelle vs Anciennes affectations) -->
+      ${(() => {
+        const allLines = vehicle.lines || [];
+        const currentLines = allLines.filter(l => !isPastLineAssignment(l));
+        const pastLines = allLines
+          .filter(l => isPastLineAssignment(l))
+          .sort((a, b) => parseFrenchPeriodSortValue(formatLineAssignmentLabel(b)) - parseFrenchPeriodSortValue(formatLineAssignmentLabel(a)));
+        if (allLines.length === 0) return '';
+        const renderAssignmentCard = (entry, isPast) => {
+          const { linesText, period } = splitLineAssignmentParts(entry);
+          const badges = renderLineLogoBadgesHtml(linesText);
+          const cardClass = isPast
+            ? 'bg-red-50/80 dark:bg-red-950/40 border-red-200 dark:border-red-900/70 text-red-900 dark:text-red-200'
+            : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/70 text-emerald-900 dark:text-emerald-200';
+          const periodClass = isPast
+            ? 'bg-red-100/80 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+            : 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300';
+          return `
+            <div class="p-3 rounded-2xl border ${cardClass} flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
+              <div class="flex flex-wrap items-center gap-1.5">
+                ${badges}
+              </div>
+              ${period ? `<span class="px-2.5 py-1 rounded-lg text-xs font-bold ${periodClass}">${period}</span>` : ''}
+            </div>
+          `;
+        };
+        return `
+          <div class="space-y-4">
+            ${currentLines.length > 0 ? `
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2.5 flex items-center gap-2">
+                  <i data-lucide="route" class="w-5 h-5 text-emerald-600"></i> Affectation actuelle
+                  <span class="text-[11px] font-medium text-slate-400">(cliquez sur une ligne pour voir son plan)</span>
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  ${currentLines.map(l => renderAssignmentCard(l, false)).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${pastLines.length > 0 ? `
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2.5 flex items-center gap-2">
+                  <i data-lucide="history" class="w-5 h-5 text-red-600"></i> Anciennes affectations
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  ${pastLines.map(l => renderAssignmentCard(l, true)).join('')}
+                </div>
+              </div>
+            ` : ''}
           </div>
-        </div>
-      ` : ''}
+        `;
+      })()}
+
+      <!-- 2b. Exploitants & Dépôts (Actuel en vert, Anciens en rouge) -->
+      ${(() => {
+        const hist = Array.isArray(vehicle.history) ? vehicle.history : [];
+        const currentOpMeta = hist.find(h => h.type === 'operator_current');
+        const pastOps = hist
+          .filter(h => h.type === 'operator_past')
+          .sort((a, b) => parseFrenchPeriodSortValue(b.period || b.date) - parseFrenchPeriodSortValue(a.period || a.date));
+        const currentOpName = vehicle.operator || 'Keolis Caen la mer';
+        const currentDepot = vehicle.depot || 'Dépôt de Caen';
+        const currentPeriod = currentOpMeta && currentOpMeta.period
+          ? currentOpMeta.period
+          : (vehicle.serviceDate ? `Depuis ${formatDate(vehicle.serviceDate)}` : 'Actuel');
+
+        const renderOperatorCard = (opName, depotName, periodText, isPast) => {
+          const cardCls = isPast
+            ? 'bg-red-50/80 dark:bg-red-950/40 border-red-200 dark:border-red-900/70'
+            : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/70';
+          const titleCls = isPast ? 'text-red-900 dark:text-red-200' : 'text-emerald-900 dark:text-emerald-200';
+          const badgeCls = isPast
+            ? 'bg-red-100/80 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+            : 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300';
+          const iconCls = isPast ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400';
+
+          return `
+            <div class="p-3.5 rounded-2xl border ${cardCls} flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 font-bold text-sm ${titleCls}">
+                  <i data-lucide="${isPast ? 'history' : 'check-circle-2'}" class="w-4 h-4 ${iconCls} flex-shrink-0"></i>
+                  <span>${opName}</span>
+                </div>
+                ${depotName ? `
+                  <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 pl-6">
+                    <i data-lucide="building-2" class="w-3.5 h-3.5 ${iconCls} flex-shrink-0"></i>
+                    <span>${depotName}</span>
+                  </div>
+                ` : ''}
+              </div>
+              ${periodText ? `<span class="px-2.5 py-1 rounded-lg text-xs font-bold self-start sm:self-center ${badgeCls}">${periodText}</span>` : ''}
+            </div>
+          `;
+        };
+
+        return `
+          <div class="space-y-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2.5 flex items-center gap-2">
+                <i data-lucide="building-2" class="w-5 h-5 text-emerald-600"></i> Exploitant actuel et Dépôt
+              </h3>
+              <div class="grid grid-cols-1 gap-2.5">
+                ${renderOperatorCard(currentOpName, currentDepot, currentPeriod, false)}
+              </div>
+            </div>
+
+            ${pastOps.length > 0 ? `
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2.5 flex items-center gap-2">
+                  <i data-lucide="building-2" class="w-5 h-5 text-red-600"></i> Anciens exploitants et Dépôts
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  ${pastOps.map(op => renderOperatorCard(op.operator || 'Exploitant', op.depot || '', op.period || '', true)).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      })()}
+
+      <!-- 2c. Photos du Véhicule -->
+      ${(() => {
+        const hist = Array.isArray(vehicle.history) ? vehicle.history : [];
+        const mainMeta = hist.find(h => h.type === 'photo_main_meta');
+        const galleryItems = [];
+        if (vehicle.photo) {
+          galleryItems.push({
+            url: vehicle.photo,
+            author: vehicle.photoAuthor || (mainMeta && mainMeta.author) || 'Alexs_14',
+            line: (mainMeta && mainMeta.line) || '',
+            date: (mainMeta && mainMeta.date) || ''
+          });
+        }
+        if (Array.isArray(vehicle.photos)) {
+          vehicle.photos.forEach(p => {
+            const url = typeof p === 'string' ? p : (p && p.url);
+            if (url && !galleryItems.some(g => g.url === url)) {
+              galleryItems.push({
+                url,
+                author: (p && p.author) || vehicle.photoAuthor || 'Spotteur',
+                line: (p && p.line) || '',
+                date: (p && p.date) || ''
+              });
+            }
+          });
+        }
+        hist.filter(h => h.type === 'photo_gallery' && h.url).forEach(p => {
+          if (!galleryItems.some(g => g.url === p.url)) {
+            galleryItems.push({ url: p.url, author: p.author || 'Spotteur', line: p.line || '', date: p.date || '' });
+          }
+        });
+        if (galleryItems.length === 0) return '';
+        return `
+          <div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <i data-lucide="camera" class="w-5 h-5 text-emerald-600"></i> Photos du Véhicule
+              <span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">${galleryItems.length}</span>
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              ${galleryItems.map(p => `
+                <a href="${p.url}" target="_blank" rel="noopener noreferrer" class="group relative aspect-video rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-sm hover:shadow-md transition">
+                  <img src="${p.url}" alt="${vehicle.model} n°${vehicle.number}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy" />
+                  ${p.line ? `<span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold border border-white/20">${p.line}</span>` : ''}
+                  ${p.date ? `<span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[10px] font-semibold border border-white/20">${formatDate(p.date)}</span>` : ''}
+                  <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 flex items-center justify-between text-[11px] text-white font-semibold">
+                    <span class="truncate flex items-center gap-1"><span class="font-bold">&copy;</span> ${p.author}</span>
+                    <i data-lucide="external-link" class="w-3 h-3 opacity-80 flex-shrink-0"></i>
+                  </div>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      })()}
 
       <!-- 3. Equipment & Features (Équipements & Confort) -->
       <div>
@@ -820,25 +1100,79 @@ function openVehicleModal(id) {
         `}
       </div>
 
-      <!-- 4. History Timeline (Historique du Véhicule) -->
-      <div>
-        <h3 class="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-          <i data-lucide="history" class="w-5 h-5 text-emerald-600"></i> Historique Chronologique du Véhicule
-        </h3>
-        ${vehicle.history && vehicle.history.length > 0 ? `
-          <div class="relative pl-6 border-l-2 border-emerald-500/40 space-y-6 ml-2">
-            ${vehicle.history.map(h => `
-              <div class="relative group">
-                <div class="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-emerald-600 border-2 border-white dark:border-slate-900 shadow"></div>
-                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">${formatDate(h.date)}</span>
-                <p class="text-sm text-slate-700 dark:text-slate-200 mt-0.5 font-medium">${h.event}</p>
+      <!-- 4. History Timeline (Historique Chronologique du Véhicule - du plus récent au plus ancien) -->
+      ${(() => {
+        const extractPeriod = (ev) => {
+          const m = String(ev || '').match(/\(([^)]+)\)\s*\.?\s*$/);
+          return m ? m[1].trim() : '';
+        };
+        const normalizePeriod = (p) => String(p || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+        const rawList = (vehicle.history || [])
+          .filter(h => h.type !== 'photo_gallery' && h.type !== 'photo_main_meta');
+
+        const structuredOpPeriods = new Set(
+          rawList
+            .filter(h => h.type === 'operator_past' || h.type === 'operator_current')
+            .map(h => normalizePeriod(h.period))
+            .filter(Boolean)
+        );
+
+        // Supprimer les doublons manuels "Exploité par ..." si déjà couverts par Exploitant actuel / Anciens exploitants
+        const seenEvents = new Set();
+        const timelineHistory = rawList
+          .filter(h => {
+            if (h.type !== 'operator_past' && h.type !== 'operator_current') {
+              const evStr = String(h.event || '').trim();
+              if (/^exploit[ée]\s+par/i.test(evStr) && structuredOpPeriods.size > 0) {
+                const evPeriod = normalizePeriod(extractPeriod(evStr));
+                if (!evPeriod || structuredOpPeriods.has(evPeriod)) return false;
+              }
+            }
+            const dedupKey = `${h.type || 'ev'}|${normalizePeriod(h.period || extractPeriod(h.event) || h.date)}|${String(h.event || '').trim().toLowerCase()}`;
+            if (seenEvents.has(dedupKey)) return false;
+            seenEvents.add(dedupKey);
+            return true;
+          })
+          .sort((a, b) => {
+            const pA = a.period || extractPeriod(a.event) || a.date;
+            const pB = b.period || extractPeriod(b.event) || b.date;
+            const valA = parseFrenchPeriodSortValue(pA);
+            const valB = parseFrenchPeriodSortValue(pB);
+            if (valB !== valA) return valB - valA;
+            if (a.type === 'operator_current' && b.type !== 'operator_current') return -1;
+            if (b.type === 'operator_current' && a.type !== 'operator_current') return 1;
+            return 0;
+          });
+
+        return `
+          <div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <i data-lucide="history" class="w-5 h-5 text-emerald-600"></i> Historique Chronologique du Véhicule
+            </h3>
+            ${timelineHistory.length > 0 ? `
+              <div class="relative pl-6 border-l-2 border-emerald-500/40 space-y-6 ml-2">
+                ${timelineHistory.map(h => {
+                  const isPastOp = h.type === 'operator_past';
+                  const dotCls = isPastOp ? 'bg-red-500' : 'bg-emerald-600';
+                  const dateTextCls = isPastOp ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400';
+                  const evPeriod = extractPeriod(h.event);
+                  const dateLabel = h.period || evPeriod || formatDate(h.date);
+                  return `
+                    <div class="relative group">
+                      <div class="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full ${dotCls} border-2 border-white dark:border-slate-900 shadow"></div>
+                      <span class="text-xs font-bold ${dateTextCls} block">${dateLabel}</span>
+                      <p class="text-sm text-slate-700 dark:text-slate-200 mt-0.5 font-medium">${h.event}</p>
+                    </div>
+                  `;
+                }).join('')}
               </div>
-            `).join('')}
+            ` : `
+              <p class="text-xs text-slate-400 italic">Historique non renseigné.</p>
+            `}
           </div>
-        ` : `
-          <p class="text-xs text-slate-400 italic">Historique non renseigné.</p>
-        `}
-      </div>
+        `;
+      })()}
 
       <!-- Observations / Notes -->
       ${vehicle.notes ? `
